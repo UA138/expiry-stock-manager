@@ -1,0 +1,51 @@
+{% extends "stock/base.html" %}
+{% block title %}在庫照会｜在庫管理システム{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">在庫照会（指定日時点の予測在庫）</h1>
+<p class="text-muted">指定した日付までに登録済みの出庫予定を、賞味期限が近いロットから順に（FEFO）差し引いた予測在庫を表示します。</p>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label">基準日</label>
+        <input type="date" class="form-control" name="target_date" value="{{ target_date }}">
+      </div>
+      <div class="col-md-2">
+        <button type="submit" class="btn btn-success w-100">表示</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if projections is not None %}
+<table class="table table-bordered bg-white align-middle">
+  <thead class="table-light">
+    <tr>
+      <th>商品コード</th>
+      <th>商品名</th>
+      <th>賞味期限</th>
+      <th>店頭予測在庫</th>
+      <th>倉庫予測在庫</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in projections %}
+    <tr class="{% if row.shortage %}table-danger{% endif %}">
+      <td>{{ row.product_code }}</td>
+      <td>{{ row.name }}</td>
+      {% if row.shortage %}
+        <td colspan="3">
+          出荷予定数が在庫を上回っています（不足：店頭 {{ row.shortage_store }} / 倉庫 {{ row.shortage_warehouse }}）
+        </td>
+      {% else %}
+        <td>{{ row.expiry_date|date:"Y/m/d" }}</td>
+        <td>{{ row.projected_store_quantity }}</td>
+        <td>{{ row.projected_warehouse_quantity }}</td>
+      {% endif %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

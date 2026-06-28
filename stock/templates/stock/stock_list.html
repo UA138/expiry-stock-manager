@@ -1,0 +1,80 @@
+{% extends "stock/base.html" %}
+{% block title %}在庫一覧｜在庫管理システム{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">在庫一覧</h1>
+  <a href="{% url 'stock:stock_register' %}" class="btn btn-success">＋ 新規登録</a>
+</div>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body row g-2">
+    <div class="col-md-3">
+      <input type="text" class="form-control" placeholder="商品名・商品コード・JANで検索">
+    </div>
+    <div class="col-md-3">
+      <select class="form-select">
+        <option value="">カテゴリで絞り込み</option>
+        <option>乳製品</option>
+        <option>インスタント食品</option>
+        <option>缶詰</option>
+        <option>ベーカリー</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <select class="form-select">
+        <option value="">期限状態で絞り込み</option>
+        <option>期限切れ</option>
+        <option>期限間近</option>
+        <option>正常</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <button class="btn btn-outline-secondary w-100">検索</button>
+    </div>
+  </div>
+</div>
+
+<table class="table table-bordered bg-white align-middle">
+  <thead class="table-light">
+    <tr>
+      <th>商品コード</th>
+      <th>JANコード</th>
+      <th>商品名</th>
+      <th>カテゴリ</th>
+      <th>店頭在庫</th>
+      <th>倉庫在庫</th>
+      <th>合計在庫</th>
+      <th>賞味期限</th>
+      <th>状態</th>
+      <th>操作</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for stock in stocks %}
+    <tr class="{% if stock.status == 'expired' %}status-expired{% elif stock.status == 'warning' %}status-warning{% endif %}">
+      <td>{{ stock.product_code }}</td>
+      <td>{{ stock.jan_code }}</td>
+      <td>{{ stock.name }}</td>
+      <td>{{ stock.category }}</td>
+      <td>{{ stock.store_quantity }}</td>
+      <td>{{ stock.warehouse_quantity }}</td>
+      <td>{{ stock.total_quantity }}</td>
+      <td>{{ stock.expiry_date|date:"Y/m/d" }}</td>
+      <td>
+        {% if stock.status == 'expired' %}
+          <span class="badge bg-danger">期限切れ</span>
+        {% elif stock.status == 'warning' %}
+          <span class="badge bg-warning text-dark">期限間近</span>
+        {% else %}
+          <span class="badge bg-secondary">正常</span>
+        {% endif %}
+      </td>
+      <td>
+        <a href="{% url 'stock:stock_edit' stock.id %}" class="btn btn-sm btn-outline-primary">編集</a>
+        <button class="btn btn-sm btn-outline-danger">削除</button>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

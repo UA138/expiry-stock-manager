@@ -1,0 +1,104 @@
+{% extends "stock/base.html" %}
+{% block title %}出庫登録｜在庫管理システム{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">出庫登録（出荷予定の登録）</h1>
+<p class="text-muted">登録した出荷日・出荷数は、賞味期限が近いロットから自動で消費される前提で「在庫照会」画面の予測在庫に反映されます。</p>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <form method="post" action="{% url 'stock:stock_list' %}">
+      <div class="mb-3">
+        <label class="form-label">
+          商品コード
+          <span id="product-not-found" class="text-danger fw-bold d-none">商品コードに該当する商品がありません</span>
+        </label>
+        <input type="text" class="form-control" id="product-code" name="product_code" placeholder="例：P0001を入力">
+      </div>
+
+      <div id="product-info" class="row">
+        <div class="col-md-4 mb-3">
+          <label class="form-label">商品名</label>
+          <input type="text" class="form-control" data-field="name" readonly>
+        </div>
+        <div class="col-md-4 mb-3">
+          <label class="form-label">JANコード</label>
+          <input type="text" class="form-control" data-field="jan_code" readonly>
+        </div>
+        <div class="col-md-4 mb-3">
+          <label class="form-label">カテゴリ</label>
+          <input type="text" class="form-control" data-field="category" readonly>
+        </div>
+        <div class="col-md-6 mb-3">
+          <label class="form-label">店頭在庫数（参考）</label>
+          <input type="text" class="form-control" data-field="store_quantity" readonly>
+        </div>
+        <div class="col-md-6 mb-3">
+          <label class="form-label">倉庫在庫数（参考）</label>
+          <input type="text" class="form-control" data-field="warehouse_quantity" readonly>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">出荷元</label>
+        <select class="form-select" name="location">
+          <option value="store">店頭</option>
+          <option value="warehouse">倉庫</option>
+        </select>
+      </div>
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">出荷数</label>
+          <input type="number" class="form-control" name="ship_quantity" min="1" placeholder="出荷する数量">
+        </div>
+        <div class="col-md-6 mb-3">
+          <label class="form-label">出荷日</label>
+          <input type="date" class="form-control" name="ship_date">
+        </div>
+      </div>
+      <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-success">出庫登録</button>
+        <a href="{% url 'stock:stock_list' %}" class="btn btn-outline-secondary">キャンセル</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const productCodeInput = document.getElementById('product-code');
+const productInfo = document.getElementById('product-info');
+const notFound = document.getElementById('product-not-found');
+
+function clearProductInfo() {
+  productInfo.querySelectorAll('[data-field]').forEach((el) => {
+    el.value = '';
+  });
+}
+
+async function lookupProduct() {
+  const code = productCodeInput.value.trim();
+  if (!code) {
+    notFound.classList.add('d-none');
+    clearProductInfo();
+    return;
+  }
+  try {
+    const res = await fetch(`/stock/api/products/${encodeURIComponent(code)}/`);
+    if (!res.ok) {
+      notFound.classList.remove('d-none');
+      clearProductInfo();
+      return;
+    }
+    const data = await res.json();
+    notFound.classList.add('d-none');
+    productInfo.querySelectorAll('[data-field]').forEach((el) => {
+      el.value = data[el.dataset.field] ?? '';
+    });
+  } catch (e) {
+    notFound.classList.remove('d-none');
+    clearProductInfo();
+  }
+}
+
+productCodeInput.addEventListener('blur', lookupProduct);
+</script>
+{% endblock %}
