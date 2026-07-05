@@ -3,7 +3,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h4 mb-0">在庫一覧</h1>
-  <a href="{% url 'stock:stock_register' %}" class="btn btn-success">＋ 新規登録</a>
+  <a href="{% url 'stock:stocktake' %}" class="btn btn-outline-secondary">棚卸し・在庫修正</a>
 </div>
 
 <div class="card shadow-sm mb-3">
@@ -43,7 +43,7 @@
       <th>カテゴリ</th>
       <th>店頭在庫</th>
       <th>倉庫在庫</th>
-      <th>合計在庫</th>
+      <th>合計在庫<br><small class="text-muted fw-normal">（全ロット）</small></th>
       <th>賞味期限</th>
       <th>状態</th>
       <th>操作</th>
@@ -67,6 +67,11 @@
           <span class="badge bg-warning text-dark">期限間近</span>
         {% else %}
           <span class="badge bg-secondary">正常</span>
+        {% endif %}
+        {% if stock.mall_status == 'mall_ng' %}
+          <span class="badge bg-danger">モール販売NG</span>
+        {% elif stock.mall_status == 'mall_warning' %}
+          <span class="badge" style="background-color:#fd7e14;">モール期限間近</span>
         {% endif %}
       </td>
       <td>

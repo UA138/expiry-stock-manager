@@ -1,104 +1,220 @@
 {% extends "stock/base.html" %}
 {% block title %}出庫登録｜在庫管理システム{% endblock %}
 {% block content %}
-<h1 class="h4 mb-3">出庫登録（出荷予定の登録）</h1>
-<p class="text-muted">登録した出荷日・出荷数は、賞味期限が近いロットから自動で消費される前提で「在庫照会」画面の予測在庫に反映されます。</p>
-
-<div class="card shadow-sm">
-  <div class="card-body">
-    <form method="post" action="{% url 'stock:stock_list' %}">
-      <div class="mb-3">
-        <label class="form-label">
-          商品コード
-          <span id="product-not-found" class="text-danger fw-bold d-none">商品コードに該当する商品がありません</span>
-        </label>
-        <input type="text" class="form-control" id="product-code" name="product_code" placeholder="例：P0001を入力">
-      </div>
-
-      <div id="product-info" class="row">
-        <div class="col-md-4 mb-3">
-          <label class="form-label">商品名</label>
-          <input type="text" class="form-control" data-field="name" readonly>
-        </div>
-        <div class="col-md-4 mb-3">
-          <label class="form-label">JANコード</label>
-          <input type="text" class="form-control" data-field="jan_code" readonly>
-        </div>
-        <div class="col-md-4 mb-3">
-          <label class="form-label">カテゴリ</label>
-          <input type="text" class="form-control" data-field="category" readonly>
-        </div>
-        <div class="col-md-6 mb-3">
-          <label class="form-label">店頭在庫数（参考）</label>
-          <input type="text" class="form-control" data-field="store_quantity" readonly>
-        </div>
-        <div class="col-md-6 mb-3">
-          <label class="form-label">倉庫在庫数（参考）</label>
-          <input type="text" class="form-control" data-field="warehouse_quantity" readonly>
-        </div>
-      </div>
-
-      <div class="mb-3">
-        <label class="form-label">出荷元</label>
-        <select class="form-select" name="location">
-          <option value="store">店頭</option>
-          <option value="warehouse">倉庫</option>
-        </select>
-      </div>
-      <div class="row">
-        <div class="col-md-6 mb-3">
-          <label class="form-label">出荷数</label>
-          <input type="number" class="form-control" name="ship_quantity" min="1" placeholder="出荷する数量">
-        </div>
-        <div class="col-md-6 mb-3">
-          <label class="form-label">出荷日</label>
-          <input type="date" class="form-control" name="ship_date">
-        </div>
-      </div>
-      <div class="mt-4 d-flex gap-2">
-        <button type="submit" class="btn btn-success">出庫登録</button>
-        <a href="{% url 'stock:stock_list' %}" class="btn btn-outline-secondary">キャンセル</a>
-      </div>
-    </form>
-  </div>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">出庫登録</h1>
+  <button type="submit" form="ship-form" class="btn btn-success">一括登録</button>
 </div>
+<p class="text-muted mb-3">同じ出荷日の商品をまとめて登録できます。商品コードを入力すると商品情報が自動表示されます。<br>
+  <span class="text-danger small">※ 商品コード・出荷数は必須です。</span>
+</p>
+
+{% if messages %}
+  {% for message in messages %}
+  <div class="alert alert-success alert-dismissible fade show" role="alert">
+    {{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endfor %}
+{% endif %}
+
+<div id="validation-error" class="alert alert-danger d-none"></div>
+
+<form id="ship-form" method="post" action="{% url 'stock:stock_ship' %}">
+  {% csrf_token %}
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <div class="col-md-3">
+        <label class="form-label fw-bold">出荷日</label>
+        <input type="date" class="form-control" name="ship_date" id="ship-date">
+      </div>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-bordered bg-white align-middle" id="ship-table">
+      <thead class="table-light">
+        <tr>
+          <th style="min-width:120px">商品コード <span class="text-danger">*</span></th>
+          <th style="min-width:150px">商品名</th>
+          <th style="min-width:120px">カテゴリ</th>
+          <th style="min-width:90px">出荷元</th>
+          <th style="min-width:100px">出荷数 <span class="text-danger">*</span></th>
+          <th style="min-width:110px">合計在庫数<br><small class="text-muted fw-normal">（参考）</small></th>
+          <th style="min-width:130px">備考</th>
+          <th style="width:48px"></th>
+        </tr>
+      </thead>
+      <tbody id="ship-body"></tbody>
+    </table>
+  </div>
+  <button type="button" class="btn btn-outline-secondary btn-sm" onclick="addRow()">＋ 行を追加</button>
+</form>
+
+<style>
+  .remarks-display {
+    cursor: pointer;
+    display: block;
+    max-width: 130px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 3px 2px;
+    border-radius: 4px;
+  }
+  .remarks-display:hover { background: #f0f0f0; }
+  .field-error { border-color: #dc3545 !important; }
+</style>
 
 <script>
-const productCodeInput = document.getElementById('product-code');
-const productInfo = document.getElementById('product-info');
-const notFound = document.getElementById('product-not-found');
+let rowIndex = 0;
 
-function clearProductInfo() {
-  productInfo.querySelectorAll('[data-field]').forEach((el) => {
-    el.value = '';
-  });
+const REMARKS_MAX_LEN    = 30;
+const REMARKS_DISPLAY_LEN = 8;
+
+function truncateRemarks(text) {
+  if (!text) return '';
+  return text.length > REMARKS_DISPLAY_LEN ? text.slice(0, REMARKS_DISPLAY_LEN) + '…' : text;
 }
 
-async function lookupProduct() {
-  const code = productCodeInput.value.trim();
+function createRow() {
+  const idx = rowIndex++;
+  const tr = document.createElement('tr');
+  tr.dataset.rowIdx = idx;
+  tr.innerHTML = `
+    <td>
+      <input type="text" class="form-control form-control-sm product-code-input"
+             name="product_code_${idx}" placeholder="例：P0001" autocomplete="off">
+      <div class="text-danger small mt-1 lookup-error d-none">該当する商品がありません</div>
+    </td>
+    <td><input type="text" class="form-control form-control-sm" name="name_${idx}" data-field="name" readonly placeholder="自動表示"></td>
+    <td><input type="text" class="form-control form-control-sm" name="category_${idx}" data-field="category" readonly placeholder="自動表示"></td>
+    <td>
+      <select class="form-select form-select-sm" name="location_${idx}">
+        <option value="store">店頭</option>
+        <option value="warehouse">倉庫</option>
+      </select>
+    </td>
+    <td><input type="number" class="form-control form-control-sm quantity-input" name="quantity_${idx}" min="1" placeholder="例：5"></td>
+    <td><input type="text" class="form-control form-control-sm text-end" data-field="total_quantity" readonly placeholder="—"></td>
+    <td>
+      <span class="remarks-display text-muted fst-italic small" title="">クリックして入力</span>
+      <input type="text" class="form-control form-control-sm d-none remarks-input"
+             name="remarks_${idx}" maxlength="${REMARKS_MAX_LEN}" placeholder="30文字まで">
+    </td>
+    <td class="text-center">
+      <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">×</button>
+    </td>
+  `;
+
+  // 商品コード検索
+  const codeInput = tr.querySelector('.product-code-input');
+  codeInput.addEventListener('blur', () => lookupProduct(tr));
+
+  // 備考：クリックで入力欄に切り替え
+  const remarksSpan  = tr.querySelector('.remarks-display');
+  const remarksInput = tr.querySelector('.remarks-input');
+
+  remarksSpan.addEventListener('click', () => {
+    remarksSpan.classList.add('d-none');
+    remarksInput.classList.remove('d-none');
+    remarksInput.focus();
+  });
+
+  remarksInput.addEventListener('blur', () => {
+    const val = remarksInput.value;
+    remarksSpan.title = val;
+    if (val) {
+      remarksSpan.textContent = truncateRemarks(val);
+      remarksSpan.classList.remove('text-muted', 'fst-italic');
+    } else {
+      remarksSpan.textContent = 'クリックして入力';
+      remarksSpan.classList.add('text-muted', 'fst-italic');
+    }
+    remarksSpan.classList.remove('d-none');
+    remarksInput.classList.add('d-none');
+  });
+
+  return tr;
+}
+
+function addRow() {
+  document.getElementById('ship-body').appendChild(createRow());
+}
+
+function removeRow(btn) {
+  const tbody = document.getElementById('ship-body');
+  if (tbody.rows.length > 1) {
+    btn.closest('tr').remove();
+  }
+}
+
+async function lookupProduct(tr) {
+  const codeInput = tr.querySelector('.product-code-input');
+  const lookupErr = tr.querySelector('.lookup-error');
+  const code = codeInput.value.trim();
+
   if (!code) {
-    notFound.classList.add('d-none');
-    clearProductInfo();
+    lookupErr.classList.add('d-none');
+    tr.querySelectorAll('[data-field]').forEach(el => { el.value = ''; });
     return;
   }
   try {
     const res = await fetch(`/stock/api/products/${encodeURIComponent(code)}/`);
     if (!res.ok) {
-      notFound.classList.remove('d-none');
-      clearProductInfo();
+      lookupErr.classList.remove('d-none');
+      tr.querySelectorAll('[data-field]').forEach(el => { el.value = ''; });
       return;
     }
     const data = await res.json();
-    notFound.classList.add('d-none');
-    productInfo.querySelectorAll('[data-field]').forEach((el) => {
+    lookupErr.classList.add('d-none');
+    tr.querySelectorAll('[data-field]').forEach(el => {
       el.value = data[el.dataset.field] ?? '';
     });
   } catch (e) {
-    notFound.classList.remove('d-none');
-    clearProductInfo();
+    lookupErr.classList.remove('d-none');
   }
 }
 
-productCodeInput.addEventListener('blur', lookupProduct);
+// 送信バリデーション
+document.getElementById('ship-form').addEventListener('submit', function(e) {
+  const allRows    = [...document.querySelectorAll('#ship-body tr')];
+  const filledRows = allRows.filter(tr => tr.querySelector('.product-code-input').value.trim() !== '');
+  const errBox     = document.getElementById('validation-error');
+
+  if (filledRows.length === 0) {
+    e.preventDefault();
+    errBox.textContent = '登録する商品を少なくとも1行入力してください。';
+    errBox.classList.remove('d-none');
+    return;
+  }
+
+  const errors = [];
+  filledRows.forEach((tr, i) => {
+    const qty = tr.querySelector('.quantity-input').value;
+    tr.querySelector('.quantity-input').classList.toggle('field-error', qty === '');
+    if (qty === '') errors.push(`${i + 1}行目：出荷数が未入力です`);
+  });
+
+  if (errors.length > 0) {
+    e.preventDefault();
+    errBox.innerHTML = errors.join('<br>');
+    errBox.classList.remove('d-none');
+    return;
+  }
+
+  errBox.classList.add('d-none');
+
+  // 商品コードが空の行は送信データから除外
+  allRows.forEach(tr => {
+    if (tr.querySelector('.product-code-input').value.trim() === '') {
+      tr.querySelectorAll('input, select').forEach(el => { el.disabled = true; });
+    }
+  });
+});
+
+// 初期3行を生成
+const tbody = document.getElementById('ship-body');
+for (let i = 0; i < 3; i++) tbody.appendChild(createRow());
 </script>
 {% endblock %}

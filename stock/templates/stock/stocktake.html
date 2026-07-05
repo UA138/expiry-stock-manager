@@ -1,0 +1,80 @@
+{% extends "stock/base.html" %}
+{% block title %}棚卸し｜在庫管理システム{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <h1 class="h4 mb-0">棚卸し（在庫修正）</h1>
+  <button type="submit" form="stocktake-form" class="btn btn-success">一括保存</button>
+</div>
+<p class="text-muted mb-3">実際に数えた在庫数を入力してください。差分が自動計算されます。入力がないロットは変更されません。</p>
+
+<form id="stocktake-form" method="post" action="{% url 'stock:stocktake' %}">
+  {% csrf_token %}
+  <table class="table table-bordered bg-white align-middle">
+    <thead class="table-light">
+      <tr>
+        <th>商品コード</th>
+        <th>商品名</th>
+        <th>賞味期限</th>
+        <th>現在の店頭在庫</th>
+        <th>実際の店頭在庫</th>
+        <th>差分（店頭）</th>
+        <th>現在の倉庫在庫</th>
+        <th>実際の倉庫在庫</th>
+        <th>差分（倉庫）</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for stock in stocks %}
+      <tr class="{% if stock.status == 'expired' %}status-expired{% elif stock.status == 'warning' %}status-warning{% endif %}"
+          data-id="{{ stock.id }}">
+        <td>{{ stock.product_code }}</td>
+        <td>{{ stock.name }}</td>
+        <td>{{ stock.expiry_date|date:"Y/m/d" }}</td>
+        <td class="text-end">{{ stock.store_quantity }}</td>
+        <td>
+          <input type="number" class="form-control form-control-sm actual-store"
+                 name="store_{{ stock.id }}" min="0"
+                 data-current="{{ stock.store_quantity }}" placeholder="—">
+        </td>
+        <td class="text-end fw-bold diff-store">—</td>
+        <td class="text-end">{{ stock.warehouse_quantity }}</td>
+        <td>
+          <input type="number" class="form-control form-control-sm actual-warehouse"
+                 name="warehouse_{{ stock.id }}" min="0"
+                 data-current="{{ stock.warehouse_quantity }}" placeholder="—">
+        </td>
+        <td class="text-end fw-bold diff-warehouse">—</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</form>
+
+<script>
+function calcDiff(input, diffCell) {
+  const val = input.value.trim();
+  if (val === '') {
+    diffCell.textContent = '—';
+    diffCell.className = 'text-end fw-bold diff-' + diffCell.classList[3];
+    return;
+  }
+  const current = parseInt(input.dataset.current, 10);
+  const actual = parseInt(val, 10);
+  const diff = actual - current;
+  diffCell.textContent = (diff > 0 ? '+' : '') + diff;
+  diffCell.style.color = diff > 0 ? '#198754' : diff < 0 ? '#dc3545' : '#6c757d';
+}
+
+document.querySelectorAll('.actual-store').forEach((input) => {
+  const row = input.closest('tr');
+  const diffCell = row.querySelector('.diff-store');
+  input.addEventListener('input', () => calcDiff(input, diffCell));
+});
+
+document.querySelectorAll('.actual-warehouse').forEach((input) => {
+  const row = input.closest('tr');
+  const diffCell = row.querySelector('.diff-warehouse');
+  input.addEventListener('input', () => calcDiff(input, diffCell));
+});
+</script>
+{% endblock %}

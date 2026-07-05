@@ -1,0 +1,373 @@
+{% extends "stock/base.html" %}
+{% block title %}入出庫登録｜在庫管理システム{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">入出庫登録</h1>
+  <button type="submit"
+          form="{% if tab == 'receive' %}receive-form{% else %}ship-form{% endif %}"
+          class="btn btn-success">一括登録</button>
+</div>
+
+{# ===== タブ ===== #}
+<ul class="nav nav-tabs mb-3">
+  <li class="nav-item">
+    <a class="nav-link {% if tab == 'receive' %}active{% endif %}" href="?tab=receive">入庫登録</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if tab != 'receive' %}active{% endif %}" href="?tab=ship">出庫登録</a>
+  </li>
+</ul>
+
+{% if messages %}
+  {% for message in messages %}
+  <div class="alert alert-{% if message.tags == 'warning' %}warning{% else %}success{% endif %} alert-dismissible fade show">
+    {{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endfor %}
+{% endif %}
+
+<div id="validation-error" class="alert alert-danger d-none"></div>
+
+{# ===================================== 入庫タブ ===================================== #}
+{% if tab == 'receive' %}
+
+<p class="text-muted mb-3">
+  同じ入荷日で届いた商品をまとめて登録できます。商品コードを入力すると商品情報が自動表示されます。<br>
+  <span class="text-danger small">※ 商品コード・賞味期限・入庫数は必須です。返品・不良品返却はマイナス数で入力してください。</span>
+</p>
+
+<form id="receive-form" method="post" action="{% url 'stock:inout' %}">
+  {% csrf_token %}
+  <input type="hidden" name="tab" value="receive">
+
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <div class="col-md-3">
+        <label class="form-label fw-bold">入荷日</label>
+        <input type="date" class="form-control" name="received_at" id="received-at">
+      </div>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-bordered bg-white align-middle" id="receive-table">
+      <thead class="table-light">
+        <tr>
+          <th style="min-width:120px">商品コード <span class="text-danger">*</span></th>
+          <th style="min-width:150px">商品名</th>
+          <th style="min-width:120px">カテゴリ</th>
+          <th style="min-width:145px">賞味期限 <span class="text-danger">*</span></th>
+          <th style="min-width:90px">入庫先</th>
+          <th style="min-width:100px">入庫数 <span class="text-danger">*</span></th>
+          <th style="min-width:130px">備考</th>
+          <th style="width:48px"></th>
+        </tr>
+      </thead>
+      <tbody id="receive-body"></tbody>
+    </table>
+  </div>
+  <button type="button" class="btn btn-outline-secondary btn-sm" onclick="addRow()">＋ 行を追加</button>
+</form>
+
+<script>
+let rowIndex = 0;
+const REMARKS_MAX_LEN     = 30;
+const REMARKS_DISPLAY_LEN = 8;
+
+function truncate(text) {
+  return text.length > REMARKS_DISPLAY_LEN ? text.slice(0, REMARKS_DISPLAY_LEN) + '…' : text;
+}
+
+function createRow() {
+  const idx = rowIndex++;
+  const tr  = document.createElement('tr');
+  tr.innerHTML = `
+    <td>
+      <input type="text" class="form-control form-control-sm product-code-input"
+             name="product_code_${idx}" placeholder="例：P0001" autocomplete="off">
+      <div class="text-danger small mt-1 lookup-error d-none">該当する商品がありません</div>
+    </td>
+    <td><input type="text" class="form-control form-control-sm" name="name_${idx}"     data-field="name"     readonly placeholder="自動表示"></td>
+    <td><input type="text" class="form-control form-control-sm" name="category_${idx}" data-field="category" readonly placeholder="自動表示"></td>
+    <td><input type="date" class="form-control form-control-sm expiry-input" name="expiry_date_${idx}"></td>
+    <td>
+      <select class="form-select form-select-sm" name="location_${idx}">
+        <option value="store">店頭</option>
+        <option value="warehouse">倉庫</option>
+      </select>
+    </td>
+    <td><input type="number" class="form-control form-control-sm quantity-input" name="quantity_${idx}" placeholder="例：10"></td>
+    <td>
+      <span class="remarks-display text-muted fst-italic small" title="">クリックして入力</span>
+      <input type="text" class="form-control form-control-sm d-none remarks-input"
+             name="remarks_${idx}" maxlength="${REMARKS_MAX_LEN}" placeholder="30文字まで">
+    </td>
+    <td class="text-center">
+      <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">×</button>
+    </td>
+  `;
+
+  const codeInput   = tr.querySelector('.product-code-input');
+  const remarksSpan = tr.querySelector('.remarks-display');
+  const remarksInput= tr.querySelector('.remarks-input');
+
+  codeInput.addEventListener('blur', () => lookupProduct(tr));
+
+  remarksSpan.addEventListener('click', () => {
+    remarksSpan.classList.add('d-none');
+    remarksInput.classList.remove('d-none');
+    remarksInput.focus();
+  });
+  remarksInput.addEventListener('blur', () => {
+    const val = remarksInput.value;
+    remarksSpan.title = val;
+    remarksSpan.textContent = val ? truncate(val) : 'クリックして入力';
+    remarksSpan.classList.toggle('text-muted', !val);
+    remarksSpan.classList.toggle('fst-italic', !val);
+    remarksSpan.classList.remove('d-none');
+    remarksInput.classList.add('d-none');
+  });
+
+  return tr;
+}
+
+function addRow()       { document.getElementById('receive-body').appendChild(createRow()); }
+function removeRow(btn) {
+  const tbody = document.getElementById('receive-body');
+  if (tbody.rows.length > 1) btn.closest('tr').remove();
+}
+
+async function lookupProduct(tr) {
+  const codeInput = tr.querySelector('.product-code-input');
+  const lookupErr = tr.querySelector('.lookup-error');
+  const code = codeInput.value.trim();
+  if (!code) {
+    lookupErr.classList.add('d-none');
+    tr.querySelectorAll('[data-field]').forEach(el => { el.value = ''; });
+    return;
+  }
+  try {
+    const res  = await fetch(`/stock/api/products/${encodeURIComponent(code)}/`);
+    const data = await res.json();
+    if (!res.ok) { lookupErr.classList.remove('d-none'); tr.querySelectorAll('[data-field]').forEach(el => { el.value = ''; }); return; }
+    lookupErr.classList.add('d-none');
+    tr.querySelectorAll('[data-field]').forEach(el => { el.value = data[el.dataset.field] ?? ''; });
+  } catch { lookupErr.classList.remove('d-none'); }
+}
+
+document.getElementById('receive-form').addEventListener('submit', function(e) {
+  const allRows    = [...document.querySelectorAll('#receive-body tr')];
+  const filledRows = allRows.filter(tr => tr.querySelector('.product-code-input').value.trim() !== '');
+  const errBox     = document.getElementById('validation-error');
+
+  if (filledRows.length === 0) {
+    e.preventDefault();
+    errBox.textContent = '登録する商品を少なくとも1行入力してください。';
+    errBox.classList.remove('d-none');
+    return;
+  }
+
+  const errors = [];
+  filledRows.forEach((tr, i) => {
+    const expiry = tr.querySelector('.expiry-input').value;
+    const qty    = tr.querySelector('.quantity-input').value;
+    tr.querySelector('.expiry-input').classList.toggle('field-error', !expiry);
+    tr.querySelector('.quantity-input').classList.toggle('field-error', qty === '');
+    if (!expiry) errors.push(`${i + 1}行目：賞味期限が未入力です`);
+    if (qty === '') errors.push(`${i + 1}行目：入庫数が未入力です`);
+  });
+
+  if (errors.length > 0) {
+    e.preventDefault();
+    errBox.innerHTML = errors.join('<br>');
+    errBox.classList.remove('d-none');
+    return;
+  }
+  errBox.classList.add('d-none');
+  allRows.forEach(tr => {
+    if (tr.querySelector('.product-code-input').value.trim() === '')
+      tr.querySelectorAll('input, select').forEach(el => { el.disabled = true; });
+  });
+});
+
+const tbody = document.getElementById('receive-body');
+for (let i = 0; i < 3; i++) tbody.appendChild(createRow());
+</script>
+
+{# ===================================== 出庫タブ ===================================== #}
+{% else %}
+
+<p class="text-muted mb-3">
+  同じ出荷日の商品をまとめて登録できます。商品コードを入力すると商品情報が自動表示されます。<br>
+  <span class="text-danger small">※ 商品コード・出荷数は必須です。登録は仮データとして保存されます。</span>
+</p>
+
+<form id="ship-form" method="post" action="{% url 'stock:inout' %}">
+  {% csrf_token %}
+  <input type="hidden" name="tab" value="ship">
+
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <div class="col-md-3">
+        <label class="form-label fw-bold">出荷日</label>
+        <input type="date" class="form-control" name="ship_date" id="ship-date">
+      </div>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-bordered bg-white align-middle" id="ship-table">
+      <thead class="table-light">
+        <tr>
+          <th style="min-width:120px">商品コード <span class="text-danger">*</span></th>
+          <th style="min-width:150px">商品名</th>
+          <th style="min-width:120px">カテゴリ</th>
+          <th style="min-width:90px">出荷元</th>
+          <th style="min-width:100px">出荷数 <span class="text-danger">*</span></th>
+          <th style="min-width:110px">合計在庫数<br><small class="text-muted fw-normal">（参考）</small></th>
+          <th style="min-width:130px">備考</th>
+          <th style="width:48px"></th>
+        </tr>
+      </thead>
+      <tbody id="ship-body"></tbody>
+    </table>
+  </div>
+  <button type="button" class="btn btn-outline-secondary btn-sm" onclick="addRow()">＋ 行を追加</button>
+</form>
+
+<script>
+let rowIndex = 0;
+const REMARKS_MAX_LEN     = 30;
+const REMARKS_DISPLAY_LEN = 8;
+
+function truncate(text) {
+  return text.length > REMARKS_DISPLAY_LEN ? text.slice(0, REMARKS_DISPLAY_LEN) + '…' : text;
+}
+
+function createRow() {
+  const idx = rowIndex++;
+  const tr  = document.createElement('tr');
+  tr.innerHTML = `
+    <td>
+      <input type="text" class="form-control form-control-sm product-code-input"
+             name="product_code_${idx}" placeholder="例：P0001" autocomplete="off">
+      <div class="text-danger small mt-1 lookup-error d-none">該当する商品がありません</div>
+    </td>
+    <td><input type="text" class="form-control form-control-sm" name="name_${idx}"     data-field="name"           readonly placeholder="自動表示"></td>
+    <td><input type="text" class="form-control form-control-sm" name="category_${idx}" data-field="category"       readonly placeholder="自動表示"></td>
+    <td>
+      <select class="form-select form-select-sm" name="location_${idx}">
+        <option value="store">店頭</option>
+        <option value="warehouse">倉庫</option>
+      </select>
+    </td>
+    <td><input type="number" class="form-control form-control-sm quantity-input" name="quantity_${idx}" min="1" placeholder="例：5"></td>
+    <td><input type="text" class="form-control form-control-sm text-end" data-field="total_quantity" readonly placeholder="—"></td>
+    <td>
+      <span class="remarks-display text-muted fst-italic small" title="">クリックして入力</span>
+      <input type="text" class="form-control form-control-sm d-none remarks-input"
+             name="remarks_${idx}" maxlength="${REMARKS_MAX_LEN}" placeholder="30文字まで">
+    </td>
+    <td class="text-center">
+      <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">×</button>
+    </td>
+  `;
+
+  const codeInput   = tr.querySelector('.product-code-input');
+  const remarksSpan = tr.querySelector('.remarks-display');
+  const remarksInput= tr.querySelector('.remarks-input');
+
+  codeInput.addEventListener('blur', () => lookupProduct(tr));
+
+  remarksSpan.addEventListener('click', () => {
+    remarksSpan.classList.add('d-none');
+    remarksInput.classList.remove('d-none');
+    remarksInput.focus();
+  });
+  remarksInput.addEventListener('blur', () => {
+    const val = remarksInput.value;
+    remarksSpan.title = val;
+    remarksSpan.textContent = val ? truncate(val) : 'クリックして入力';
+    remarksSpan.classList.toggle('text-muted', !val);
+    remarksSpan.classList.toggle('fst-italic', !val);
+    remarksSpan.classList.remove('d-none');
+    remarksInput.classList.add('d-none');
+  });
+
+  return tr;
+}
+
+function addRow()       { document.getElementById('ship-body').appendChild(createRow()); }
+function removeRow(btn) {
+  const tbody = document.getElementById('ship-body');
+  if (tbody.rows.length > 1) btn.closest('tr').remove();
+}
+
+async function lookupProduct(tr) {
+  const codeInput = tr.querySelector('.product-code-input');
+  const lookupErr = tr.querySelector('.lookup-error');
+  const code = codeInput.value.trim();
+  if (!code) {
+    lookupErr.classList.add('d-none');
+    tr.querySelectorAll('[data-field]').forEach(el => { el.value = ''; });
+    return;
+  }
+  try {
+    const res  = await fetch(`/stock/api/products/${encodeURIComponent(code)}/`);
+    const data = await res.json();
+    if (!res.ok) { lookupErr.classList.remove('d-none'); tr.querySelectorAll('[data-field]').forEach(el => { el.value = ''; }); return; }
+    lookupErr.classList.add('d-none');
+    tr.querySelectorAll('[data-field]').forEach(el => { el.value = data[el.dataset.field] ?? ''; });
+  } catch { lookupErr.classList.remove('d-none'); }
+}
+
+document.getElementById('ship-form').addEventListener('submit', function(e) {
+  const allRows    = [...document.querySelectorAll('#ship-body tr')];
+  const filledRows = allRows.filter(tr => tr.querySelector('.product-code-input').value.trim() !== '');
+  const errBox     = document.getElementById('validation-error');
+
+  if (filledRows.length === 0) {
+    e.preventDefault();
+    errBox.textContent = '登録する商品を少なくとも1行入力してください。';
+    errBox.classList.remove('d-none');
+    return;
+  }
+
+  const errors = [];
+  filledRows.forEach((tr, i) => {
+    const qty = tr.querySelector('.quantity-input').value;
+    tr.querySelector('.quantity-input').classList.toggle('field-error', qty === '');
+    if (qty === '') errors.push(`${i + 1}行目：出荷数が未入力です`);
+  });
+
+  if (errors.length > 0) {
+    e.preventDefault();
+    errBox.innerHTML = errors.join('<br>');
+    errBox.classList.remove('d-none');
+    return;
+  }
+  errBox.classList.add('d-none');
+  allRows.forEach(tr => {
+    if (tr.querySelector('.product-code-input').value.trim() === '')
+      tr.querySelectorAll('input, select').forEach(el => { el.disabled = true; });
+  });
+});
+
+const tbody = document.getElementById('ship-body');
+for (let i = 0; i < 3; i++) tbody.appendChild(createRow());
+</script>
+
+{% endif %}
+
+<style>
+  .remarks-display {
+    cursor: pointer; display: block; max-width: 130px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    padding: 3px 2px; border-radius: 4px;
+  }
+  .remarks-display:hover { background: #f0f0f0; }
+  .field-error { border-color: #dc3545 !important; }
+</style>
+{% endblock %}

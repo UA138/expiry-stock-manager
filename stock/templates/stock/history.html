@@ -1,0 +1,269 @@
+{% extends "stock/base.html" %}
+{% block title %}履歴照会｜在庫管理システム{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">履歴照会</h1>
+
+{% if messages %}
+  {% for message in messages %}
+  <div class="alert alert-{% if message.tags == 'warning' %}warning{% else %}success{% endif %} alert-dismissible fade show">
+    {{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endfor %}
+{% endif %}
+
+{# ===== タブ ===== #}
+<ul class="nav nav-tabs mb-3">
+  <li class="nav-item">
+    <a class="nav-link {% if tab == 'receive' %}active{% endif %}"
+       href="#" onclick="switchTab('receive'); return false;">入庫履歴</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if tab != 'receive' %}active{% endif %}"
+       href="#" onclick="switchTab('ship'); return false;">出庫履歴</a>
+  </li>
+</ul>
+
+{# ======================= 入庫タブ ======================= #}
+{% if tab == 'receive' %}
+
+<form method="get" action="" class="card shadow-sm mb-4">
+  <div class="card-body">
+    <input type="hidden" name="tab" value="receive">
+    {# 出庫タブのフィルターを保持 #}
+    {% if s_from %}<input type="hidden" name="s_from" value="{{ s_from }}">{% endif %}
+    {% if s_to   %}<input type="hidden" name="s_to"   value="{{ s_to }}">{% endif %}
+    {% if s_code %}<input type="hidden" name="s_code" value="{{ s_code }}">{% endif %}
+
+    <div class="d-flex flex-wrap align-items-end gap-3">
+      <div>
+        <label class="form-label fw-bold mb-1">期間</label>
+        <div class="d-flex align-items-end gap-2">
+          <div>
+            <label for="r_from" class="form-label mb-1 small text-muted">開始日</label>
+            <input type="date" class="form-control" id="r_from" name="r_from" value="{{ r_from }}">
+          </div>
+          <span class="mb-2">〜</span>
+          <div>
+            <label for="r_to" class="form-label mb-1 small text-muted">終了日</label>
+            <input type="date" class="form-control" id="r_to" name="r_to" value="{{ r_to }}">
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label for="r_code" class="form-label fw-bold mb-1">商品コード</label>
+        <input type="text" class="form-control" id="r_code" name="r_code"
+               value="{{ r_code }}" placeholder="例：P0001" style="width:140px">
+      </div>
+
+      <div class="d-flex gap-2 align-self-end">
+        <button type="submit" class="btn btn-success">絞り込む</button>
+        <a href="?{{ r_reset }}" class="btn btn-outline-secondary">リセット</a>
+      </div>
+    </div>
+  </div>
+</form>
+
+{% if r_searched %}
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <span class="text-muted small">{{ receive_records|length }} 件</span>
+    {% if receive_records %}
+    <a href="{% url 'stock:history_csv' %}?{{ query_string }}" class="btn btn-outline-primary btn-sm">CSV ダウンロード</a>
+    {% endif %}
+  </div>
+
+  {% if receive_records %}
+  <div class="table-responsive">
+    <table class="table table-bordered table-hover bg-white align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>入荷日</th><th>商品コード</th><th>JANコード</th><th>商品名</th>
+          <th>カテゴリ</th><th>賞味期限</th><th>入庫先</th>
+          <th class="text-end">入庫数</th><th>備考</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in receive_records %}
+        <tr>
+          <td>{{ r.received_at|date:"Y/m/d" }}</td>
+          <td>{{ r.product_code }}</td>
+          <td>{{ r.jan_code }}</td>
+          <td>{{ r.name }}</td>
+          <td>{{ r.category }}</td>
+          <td>{{ r.expiry_date|date:"Y/m/d" }}</td>
+          <td>{% if r.location == 'store' %}店頭{% else %}倉庫{% endif %}</td>
+          <td class="text-end {% if r.quantity < 0 %}text-danger{% endif %}">
+            {% if r.quantity > 0 %}+{% endif %}{{ r.quantity }}
+          </td>
+          <td>{{ r.remarks }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="alert alert-info">該当するデータがありません。</div>
+  {% endif %}
+
+{% else %}
+  <p class="text-muted">期間または商品コードを指定して「絞り込む」を押してください。</p>
+{% endif %}
+
+{# ======================= 出庫タブ ======================= #}
+{% else %}
+
+<form method="get" action="" class="card shadow-sm mb-4">
+  <div class="card-body">
+    <input type="hidden" name="tab" value="ship">
+    {# 入庫タブのフィルターを保持 #}
+    {% if r_from %}<input type="hidden" name="r_from" value="{{ r_from }}">{% endif %}
+    {% if r_to   %}<input type="hidden" name="r_to"   value="{{ r_to }}">{% endif %}
+    {% if r_code %}<input type="hidden" name="r_code" value="{{ r_code }}">{% endif %}
+
+    <div class="d-flex flex-wrap align-items-end gap-3">
+      <div>
+        <label class="form-label fw-bold mb-1">期間</label>
+        <div class="d-flex align-items-end gap-2">
+          <div>
+            <label for="s_from" class="form-label mb-1 small text-muted">開始日</label>
+            <input type="date" class="form-control" id="s_from" name="s_from" value="{{ s_from }}">
+          </div>
+          <span class="mb-2">〜</span>
+          <div>
+            <label for="s_to" class="form-label mb-1 small text-muted">終了日</label>
+            <input type="date" class="form-control" id="s_to" name="s_to" value="{{ s_to }}">
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label for="s_code" class="form-label fw-bold mb-1">商品コード</label>
+        <input type="text" class="form-control" id="s_code" name="s_code"
+               value="{{ s_code }}" placeholder="例：P0001" style="width:140px">
+      </div>
+
+      <div class="d-flex gap-2 align-self-end">
+        <button type="submit" class="btn btn-success">絞り込む</button>
+        <a href="?{{ s_reset }}" class="btn btn-outline-secondary">リセット</a>
+      </div>
+    </div>
+  </div>
+</form>
+
+{% if s_searched %}
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <div class="d-flex align-items-center gap-3">
+      <span class="text-muted small">
+        {{ ship_records|length }} 件
+        {% if ship_records %}（仮 <strong>{{ unconfirmed_count }}</strong> 件 ／ 確定 <strong>{{ confirmed_count }}</strong> 件）{% endif %}
+      </span>
+      {% if ship_records %}
+      <span class="fw-bold text-primary">合計出荷数：{{ ship_total }} 個</span>
+      {% endif %}
+    </div>
+    <a href="{% url 'stock:history_csv' %}?{{ query_string }}" class="btn btn-outline-primary btn-sm">CSV ダウンロード</a>
+  </div>
+
+  {% if ship_records %}
+  <div class="table-responsive">
+    <table class="table table-bordered table-hover bg-white align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>出荷日</th><th>商品コード</th><th>JANコード</th><th>商品名</th>
+          <th>カテゴリ</th><th>出荷元</th>
+          <th class="text-end">出荷数</th><th>備考</th><th>状態</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in ship_records %}
+        <tr>
+          <td>{{ r.ship_date|date:"Y/m/d" }}</td>
+          <td>{{ r.product_code }}</td>
+          <td>{{ r.jan_code }}</td>
+          <td>{{ r.name }}</td>
+          <td>{{ r.category }}</td>
+          <td>{% if r.location == 'store' %}店頭{% else %}倉庫{% endif %}</td>
+          <td class="text-end">{{ r.quantity }}</td>
+          <td>{{ r.remarks }}</td>
+          <td>
+            {% if r.is_confirmed %}
+              <span class="badge bg-success">確定</span>
+            {% else %}
+              <span class="badge bg-secondary">仮</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="table-light fw-bold">
+        <tr>
+          <td colspan="6" class="text-end">合計出荷数</td>
+          <td class="text-end">{{ ship_total }}</td>
+          <td colspan="2"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  {% if unconfirmed_count > 0 %}
+  <div class="d-flex justify-content-end gap-2 mt-3">
+
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action"  value="delete">
+      <input type="hidden" name="s_from"  value="{{ s_from }}">
+      <input type="hidden" name="s_to"    value="{{ s_to }}">
+      <input type="hidden" name="s_code"  value="{{ s_code }}">
+      <input type="hidden" name="r_from"  value="{{ r_from }}">
+      <input type="hidden" name="r_to"    value="{{ r_to }}">
+      <input type="hidden" name="r_code"  value="{{ r_code }}">
+      <button type="button" class="btn btn-outline-danger btn-sm"
+              onclick="doAction(this.form, '削除', {{ unconfirmed_count }})">
+        仮データを削除（{{ unconfirmed_count }}件）
+      </button>
+    </form>
+
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action"  value="confirm">
+      <input type="hidden" name="s_from"  value="{{ s_from }}">
+      <input type="hidden" name="s_to"    value="{{ s_to }}">
+      <input type="hidden" name="s_code"  value="{{ s_code }}">
+      <input type="hidden" name="r_from"  value="{{ r_from }}">
+      <input type="hidden" name="r_to"    value="{{ r_to }}">
+      <input type="hidden" name="r_code"  value="{{ r_code }}">
+      <button type="button" class="btn btn-success btn-sm"
+              onclick="doAction(this.form, '在庫に反映して確定', {{ unconfirmed_count }})">
+        在庫に反映して確定（{{ unconfirmed_count }}件）
+      </button>
+    </form>
+
+  </div>
+  <p class="text-end text-muted small mt-1">※ 確定・削除は取り消せません。一覧をよく確認してから操作してください。</p>
+  {% endif %}
+
+  {% else %}
+  <div class="alert alert-info">該当するデータがありません。</div>
+  {% endif %}
+
+{% else %}
+  <p class="text-muted">期間または商品コードを指定して「絞り込む」を押してください。</p>
+{% endif %}
+
+{% endif %}{# end tab #}
+
+<script>
+function switchTab(tab) {
+  const params = new URLSearchParams(window.location.search);
+  params.set('tab', tab);
+  window.location.href = '?' + params.toString();
+}
+
+function doAction(form, label, count) {
+  if (confirm(`仮データ ${count} 件を「${label}」します。\nよろしいですか？`)) {
+    form.submit();
+  }
+}
+</script>
+{% endblock %}

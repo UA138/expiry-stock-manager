@@ -1,0 +1,130 @@
+{% extends "stock/base.html" %}
+{% block title %}出庫管理｜在庫管理システム{% endblock %}
+{% block content %}
+<h1 class="h4 mb-1">出庫管理（仮データの確定・削除）</h1>
+<p class="text-muted mb-3">
+  出庫登録で入力した仮データを期間で絞り込み、不要な予測データを削除するか、
+  実際の出荷データとして在庫に反映（確定）します。
+</p>
+
+{% if messages %}
+  {% for message in messages %}
+  <div class="alert alert-{% if message.tags == 'warning' %}warning{% else %}success{% endif %} alert-dismissible fade show">
+    {{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endfor %}
+{% endif %}
+
+{# ===== 期間フィルター ===== #}
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <form method="get" class="d-flex flex-wrap align-items-end gap-3">
+      <div>
+        <label class="form-label fw-bold mb-1">開始日</label>
+        <input type="date" class="form-control" name="date_from" value="{{ date_from }}">
+      </div>
+      <span class="mb-2">〜</span>
+      <div>
+        <label class="form-label fw-bold mb-1">終了日</label>
+        <input type="date" class="form-control" name="date_to" value="{{ date_to }}">
+      </div>
+      <div class="d-flex gap-2 align-self-end">
+        <button type="submit" class="btn btn-success">絞り込む</button>
+        <a href="{% url 'stock:shipment_manage' %}" class="btn btn-outline-secondary">リセット</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# ===== 検索結果 ===== #}
+{% if searched %}
+  {% if plans %}
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <span class="text-muted small">
+      {{ plans|length }}件 ／ 合計出荷数：<strong>{{ total_qty }}</strong>個
+    </span>
+  </div>
+
+  <div class="table-responsive mb-3">
+    <table class="table table-bordered table-hover bg-white align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>出荷日</th>
+          <th>商品コード</th>
+          <th>商品名</th>
+          <th>出荷元</th>
+          <th class="text-end">出荷数</th>
+          <th>備考</th>
+          <th>状態</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for plan in plans %}
+        <tr>
+          <td>{{ plan.ship_date|date:"Y/m/d" }}</td>
+          <td>{{ plan.product.product_code }}</td>
+          <td>{{ plan.product.name }}</td>
+          <td>{% if plan.location == 'store' %}店頭{% else %}倉庫{% endif %}</td>
+          <td class="text-end">{{ plan.quantity }}</td>
+          <td>{{ plan.remarks }}</td>
+          <td><span class="badge bg-secondary">仮</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {# ===== アクションボタン ===== #}
+  <div class="d-flex gap-3">
+
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="date_from" value="{{ date_from }}">
+      <input type="hidden" name="date_to"   value="{{ date_to }}">
+      <input type="hidden" name="action"    value="delete">
+      <button type="button" class="btn btn-outline-danger"
+              onclick="confirmAction(this.form, '削除')">
+        一括削除（{{ plans|length }}件）
+      </button>
+    </form>
+
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="date_from" value="{{ date_from }}">
+      <input type="hidden" name="date_to"   value="{{ date_to }}">
+      <input type="hidden" name="action"    value="confirm">
+      <button type="button" class="btn btn-success"
+              onclick="confirmAction(this.form, '在庫に反映して確定')">
+        在庫に反映して確定（{{ plans|length }}件）
+      </button>
+    </form>
+
+  </div>
+
+  <div class="mt-3 p-3 bg-light rounded border small text-muted">
+    <strong>「在庫に反映して確定」とは：</strong>
+    絞り込まれた{{ plans|length }}件の仮データを、FEFO（賞味期限が近いロットから順）に在庫から差し引き、在庫一覧に反映します。
+    操作は取り消せないため、内容を確認してから実行してください。
+  </div>
+
+  {% else %}
+    <div class="alert alert-info">
+      指定期間に仮データはありません。
+      <a href="{% url 'stock:stock_ship' %}" class="alert-link">出庫登録</a>から入力してください。
+    </div>
+  {% endif %}
+
+{% else %}
+  <p class="text-muted">期間を指定して「絞り込む」を押してください。</p>
+{% endif %}
+
+<script>
+function confirmAction(form, label) {
+  const count = {{ plans|length|default:0 }};
+  if (confirm(`期間内の仮データ ${count} 件を「${label}」します。\nよろしいですか？`)) {
+    form.submit();
+  }
+}
+</script>
+{% endblock %}

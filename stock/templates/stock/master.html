@@ -21,7 +21,7 @@
       <button class="btn btn-sm btn-success">＋ 商品追加</button>
     </div>
     <table class="table table-bordered bg-white">
-      <thead class="table-light"><tr><th>商品コード</th><th>JANコード</th><th>商品名</th><th>カテゴリ</th><th>操作</th></tr></thead>
+      <thead class="table-light"><tr><th>商品コード</th><th>JANコード</th><th>商品名</th><th>カテゴリ</th><th>賞味期限（製造より○日）</th><th>モール期限（残○日まで）</th><th>操作</th></tr></thead>
       <tbody>
         {% for product in products %}
         <tr>
@@ -29,6 +29,8 @@
           <td>{{ product.jan_code }}</td>
           <td>{{ product.name }}</td>
           <td>{{ product.category }}</td>
+          <td>{{ product.shelf_life_days }}日</td>
+          <td>{{ product.mall_limit_days }}日</td>
           <td>
             <button class="btn btn-sm btn-outline-primary">編集</button>
             <button class="btn btn-sm btn-outline-danger">削除</button>
