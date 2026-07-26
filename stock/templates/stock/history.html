@@ -30,7 +30,6 @@
 <form method="get" action="" class="card shadow-sm mb-4">
   <div class="card-body">
     <input type="hidden" name="tab" value="receive">
-    {# 出庫タブのフィルターを保持 #}
     {% if s_from %}<input type="hidden" name="s_from" value="{{ s_from }}">{% endif %}
     {% if s_to   %}<input type="hidden" name="s_to"   value="{{ s_to }}">{% endif %}
     {% if s_code %}<input type="hidden" name="s_code" value="{{ s_code }}">{% endif %}
@@ -67,7 +66,15 @@
 
 {% if r_searched %}
   <div class="d-flex justify-content-between align-items-center mb-2">
-    <span class="text-muted small">{{ receive_records|length }} 件</span>
+    <div class="d-flex align-items-center gap-3">
+      <span class="text-muted small">
+        {{ receive_records|length }} 件
+        {% if receive_records %}（仮 <strong>{{ r_unconfirmed_count }}</strong> 件 ／ 確定 <strong>{{ r_confirmed_count }}</strong> 件）{% endif %}
+      </span>
+      {% if receive_records %}
+      <span class="fw-bold text-primary">合計入庫数：{{ r_total_qty }} 個</span>
+      {% endif %}
+    </div>
     {% if receive_records %}
     <a href="{% url 'stock:history_csv' %}?{{ query_string }}" class="btn btn-outline-primary btn-sm">CSV ダウンロード</a>
     {% endif %}
@@ -80,7 +87,7 @@
         <tr>
           <th>入荷日</th><th>商品コード</th><th>JANコード</th><th>商品名</th>
           <th>カテゴリ</th><th>賞味期限</th><th>入庫先</th>
-          <th class="text-end">入庫数</th><th>備考</th>
+          <th class="text-end">入庫数</th><th>備考</th><th>状態</th>
         </tr>
       </thead>
       <tbody>
@@ -97,11 +104,67 @@
             {% if r.quantity > 0 %}+{% endif %}{{ r.quantity }}
           </td>
           <td>{{ r.remarks }}</td>
+          <td>
+            {% if r.is_confirmed %}
+              <span class="badge bg-success">確定</span>
+            {% else %}
+              <span class="badge bg-secondary">仮</span>
+            {% endif %}
+          </td>
         </tr>
         {% endfor %}
       </tbody>
+      <tfoot class="table-light fw-bold">
+        <tr>
+          <td colspan="7" class="text-end">合計入庫数</td>
+          <td class="text-end">{{ r_total_qty }}</td>
+          <td colspan="2"></td>
+        </tr>
+      </tfoot>
     </table>
   </div>
+
+  {% if r_unconfirmed_count > 0 %}
+  {% if user_role != 'viewer' %}
+  <div class="d-flex justify-content-end gap-2 mt-3">
+
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="form_tab" value="receive">
+      <input type="hidden" name="action"   value="delete">
+      <input type="hidden" name="r_from"   value="{{ r_from }}">
+      <input type="hidden" name="r_to"     value="{{ r_to }}">
+      <input type="hidden" name="r_code"   value="{{ r_code }}">
+      <input type="hidden" name="s_from"   value="{{ s_from }}">
+      <input type="hidden" name="s_to"     value="{{ s_to }}">
+      <input type="hidden" name="s_code"   value="{{ s_code }}">
+      <button type="button" class="btn btn-outline-danger btn-sm"
+              onclick="doAction(this.form, '削除', {{ r_unconfirmed_count }})">
+        仮データを削除（{{ r_unconfirmed_count }}件）
+      </button>
+    </form>
+
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="form_tab" value="receive">
+      <input type="hidden" name="action"   value="confirm">
+      <input type="hidden" name="r_from"   value="{{ r_from }}">
+      <input type="hidden" name="r_to"     value="{{ r_to }}">
+      <input type="hidden" name="r_code"   value="{{ r_code }}">
+      <input type="hidden" name="s_from"   value="{{ s_from }}">
+      <input type="hidden" name="s_to"     value="{{ s_to }}">
+      <input type="hidden" name="s_code"   value="{{ s_code }}">
+      <button type="button" class="btn btn-success btn-sm"
+              onclick="doAction(this.form, '在庫に反映して確定', {{ r_unconfirmed_count }})">
+        在庫に反映して確定（{{ r_unconfirmed_count }}件）
+      </button>
+    </form>
+
+  </div>
+  <p class="text-end text-muted small mt-1">※ 確定・削除は取り消せません。一覧をよく確認してから操作してください。</p>
+  {% endif %}
+  {% endif %}
+
   {% else %}
   <div class="alert alert-info">該当するデータがありません。</div>
   {% endif %}
@@ -207,6 +270,7 @@
   </div>
 
   {% if unconfirmed_count > 0 %}
+  {% if user_role != 'viewer' %}
   <div class="d-flex justify-content-end gap-2 mt-3">
 
     <form method="post">
@@ -241,6 +305,7 @@
 
   </div>
   <p class="text-end text-muted small mt-1">※ 確定・削除は取り消せません。一覧をよく確認してから操作してください。</p>
+  {% endif %}
   {% endif %}
 
   {% else %}

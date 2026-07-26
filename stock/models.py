@@ -1,5 +1,6 @@
 import datetime
 
+from django.conf import settings
 from django.db import models
 
 LOCATION_CHOICES = [("store", "店頭"), ("warehouse", "倉庫")]
@@ -108,6 +109,8 @@ class ReceiveHistory(models.Model):
     location = models.CharField("入庫先", max_length=20, choices=LOCATION_CHOICES)
     quantity = models.IntegerField("入庫数")
     remarks = models.CharField("備考", max_length=30, blank=True)
+    is_confirmed = models.BooleanField("確定済み", default=False)
+    confirmed_at = models.DateTimeField("確定日時", null=True, blank=True)
     created_at = models.DateTimeField("登録日時", auto_now_add=True)
 
     class Meta:
@@ -117,3 +120,25 @@ class ReceiveHistory(models.Model):
 
     def __str__(self):
         return f"{self.received_at} {self.product.name} {self.quantity}個"
+
+
+class UserProfile(models.Model):
+    ROLE_CHOICES = [
+        ("admin",  "管理者"),
+        ("staff",  "担当者"),
+        ("viewer", "閲覧者"),
+    ]
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="profile",
+        verbose_name="ユーザー",
+    )
+    role = models.CharField("権限", max_length=20, choices=ROLE_CHOICES, default="staff")
+
+    class Meta:
+        verbose_name = "ユーザープロフィール"
+        verbose_name_plural = "ユーザープロフィール"
+
+    def __str__(self):
+        return f"{self.user.username} ({self.get_role_display()})"

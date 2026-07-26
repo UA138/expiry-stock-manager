@@ -4,9 +4,11 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h4 mb-0">入出庫登録</h1>
+  {% if user_role != 'viewer' %}
   <button type="submit"
           form="{% if tab == 'receive' %}receive-form{% else %}ship-form{% endif %}"
           class="btn btn-success">一括登録</button>
+  {% endif %}
 </div>
 
 {# ===== タブ ===== #}
@@ -32,6 +34,13 @@
 
 {# ===================================== 入庫タブ ===================================== #}
 {% if tab == 'receive' %}
+
+{% if user_role == 'viewer' %}
+<div class="alert alert-info">
+  <strong>閲覧者のため、入庫の登録はできません。</strong><br>
+  入庫履歴は「履歴照会」から確認できます。
+</div>
+{% else %}
 
 <p class="text-muted mb-3">
   同じ入荷日で届いた商品をまとめて登録できます。商品コードを入力すると商品情報が自動表示されます。<br>
@@ -68,7 +77,9 @@
       <tbody id="receive-body"></tbody>
     </table>
   </div>
+  {% if user_role != 'viewer' %}
   <button type="button" class="btn btn-outline-secondary btn-sm" onclick="addRow()">＋ 行を追加</button>
+  {% endif %}
 </form>
 
 <script>
@@ -128,6 +139,21 @@ function createRow() {
     remarksSpan.classList.toggle('fst-italic', !val);
     remarksSpan.classList.remove('d-none');
     remarksInput.classList.add('d-none');
+  });
+
+  tr.querySelectorAll('input:not([readonly]), select').forEach(input => {
+    input.addEventListener('keydown', async function(e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      if (input.classList.contains('product-code-input')) {
+        await lookupProduct(tr);
+      }
+      const all = [...document.querySelectorAll(
+        '#receive-body input:not([readonly]):not(.d-none), #receive-body select'
+      )];
+      const pos = all.indexOf(input);
+      if (pos !== -1 && pos + 1 < all.length) all[pos + 1].focus();
+    });
   });
 
   return tr;
@@ -196,7 +222,16 @@ const tbody = document.getElementById('receive-body');
 for (let i = 0; i < 3; i++) tbody.appendChild(createRow());
 </script>
 
+{% endif %}{# end viewer check #}
+
 {# ===================================== 出庫タブ ===================================== #}
+{% else %}
+
+{% if user_role == 'viewer' %}
+<div class="alert alert-info">
+  <strong>閲覧者のため、出庫の登録はできません。</strong><br>
+  出庫履歴は「履歴照会」から確認できます。
+</div>
 {% else %}
 
 <p class="text-muted mb-3">
@@ -234,7 +269,9 @@ for (let i = 0; i < 3; i++) tbody.appendChild(createRow());
       <tbody id="ship-body"></tbody>
     </table>
   </div>
+  {% if user_role != 'viewer' %}
   <button type="button" class="btn btn-outline-secondary btn-sm" onclick="addRow()">＋ 行を追加</button>
+  {% endif %}
 </form>
 
 <script>
@@ -294,6 +331,21 @@ function createRow() {
     remarksSpan.classList.toggle('fst-italic', !val);
     remarksSpan.classList.remove('d-none');
     remarksInput.classList.add('d-none');
+  });
+
+  tr.querySelectorAll('input:not([readonly]), select').forEach(input => {
+    input.addEventListener('keydown', async function(e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      if (input.classList.contains('product-code-input')) {
+        await lookupProduct(tr);
+      }
+      const all = [...document.querySelectorAll(
+        '#ship-body input:not([readonly]):not(.d-none), #ship-body select'
+      )];
+      const pos = all.indexOf(input);
+      if (pos !== -1 && pos + 1 < all.length) all[pos + 1].focus();
+    });
   });
 
   return tr;
@@ -358,6 +410,8 @@ document.getElementById('ship-form').addEventListener('submit', function(e) {
 const tbody = document.getElementById('ship-body');
 for (let i = 0; i < 3; i++) tbody.appendChild(createRow());
 </script>
+
+{% endif %}{# end viewer check #}
 
 {% endif %}
 

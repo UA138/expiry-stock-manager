@@ -6,9 +6,11 @@ app_name = "stock"
 
 urlpatterns = [
     path("login/", views.login_view, name="login"),
+    path("logout/", views.logout_view, name="logout"),
+    path("register/", views.register_view, name="register"),
     path("", views.stock_list_view, name="stock_list"),
-    path("register/", views.stock_register_view, name="stock_register"),
     path("edit/<int:pk>/", views.stock_edit_view, name="stock_edit"),
+    path("delete/<int:pk>/", views.stock_delete_view, name="stock_delete"),
     path("stocktake/", views.stocktake_view, name="stocktake"),
     path("receive/", views.stock_receive_view, name="stock_receive"),
     path("ship/", views.stock_ship_view, name="stock_ship"),

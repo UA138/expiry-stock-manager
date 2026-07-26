@@ -78,6 +78,7 @@
   {# ===== アクションボタン ===== #}
   <div class="d-flex gap-3">
 
+  {% if user_role != 'viewer' %}
     <form method="post">
       {% csrf_token %}
       <input type="hidden" name="date_from" value="{{ date_from }}">
@@ -99,6 +100,7 @@
         在庫に反映して確定（{{ plans|length }}件）
       </button>
     </form>
+  {% endif %}
 
   </div>
 

@@ -9,6 +9,12 @@
   .navbar-brand { font-weight: bold; }
   .status-expired { background-color: #f8d7da !important; }
   .status-warning { background-color: #fff3cd !important; }
+  .nav-link.nav-active {
+    background-color: #fff;
+    color: #146c43 !important;
+    border-radius: 4px;
+    font-weight: bold;
+  }
 </style>
 </head>
 <body>
@@ -16,15 +22,17 @@
 <nav class="navbar navbar-expand-lg navbar-dark bg-success mb-4">
   <div class="container">
     <a class="navbar-brand" href="{% url 'stock:stock_list' %}">在庫管理システム</a>
+    {% with url_name=request.resolver_match.url_name %}
     <div class="navbar-nav">
-      <a class="nav-link text-white" href="{% url 'stock:stock_list' %}">在庫一覧</a>
-      <a class="nav-link text-white" href="{% url 'stock:inout' %}">入出庫登録</a>
-      <a class="nav-link text-white" href="{% url 'stock:stock_projection' %}">在庫照会</a>
-      <a class="nav-link text-white" href="{% url 'stock:stocktake' %}">棚卸し</a>
-      <a class="nav-link text-white" href="{% url 'stock:master' %}">マスタ管理</a>
-      <a class="nav-link text-white" href="{% url 'stock:history' %}">履歴照会</a>
-      <a class="nav-link text-white" href="{% url 'stock:login' %}">ログアウト</a>
+      <a class="nav-link text-white {% if url_name == 'stock_list' %}nav-active{% endif %}" href="{% url 'stock:stock_list' %}">在庫一覧</a>
+      <a class="nav-link text-white {% if url_name == 'inout' %}nav-active{% endif %}" href="{% url 'stock:inout' %}">入出庫登録</a>
+      <a class="nav-link text-white {% if url_name == 'stock_projection' %}nav-active{% endif %}" href="{% url 'stock:stock_projection' %}">在庫照会</a>
+      <a class="nav-link text-white {% if url_name == 'stocktake' %}nav-active{% endif %}" href="{% url 'stock:stocktake' %}">棚卸し</a>
+      <a class="nav-link text-white {% if url_name == 'master' %}nav-active{% endif %}" href="{% url 'stock:master' %}">マスタ管理</a>
+      <a class="nav-link text-white {% if url_name == 'history' or url_name == 'history_csv' %}nav-active{% endif %}" href="{% url 'stock:history' %}">履歴照会</a>
+      <a class="nav-link text-white" href="{% url 'stock:logout' %}">ログアウト</a>
     </div>
+    {% endwith %}
   </div>
 </nav>
 {% endblock %}
@@ -32,5 +40,6 @@
   {% block content %}{% endblock %}
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+{% block scripts %}{% endblock %}
 </body>
 </html>

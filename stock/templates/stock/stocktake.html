@@ -3,9 +3,15 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-2">
   <h1 class="h4 mb-0">棚卸し（在庫修正）</h1>
+  {% if user_role != 'viewer' %}
   <button type="submit" form="stocktake-form" class="btn btn-success">一括保存</button>
+  {% endif %}
 </div>
-<p class="text-muted mb-3">実際に数えた在庫数を入力してください。差分が自動計算されます。入力がないロットは変更されません。</p>
+{% if user_role == 'viewer' %}
+<p class="text-muted mb-3">現在の在庫数を確認できます。（閲覧者のため編集・保存はできません）</p>
+{% else %}
+<p class="text-muted mb-3">実際に数えた在庫数を入力してください。差分（店頭＋倉庫の合計）が自動計算されます。入力がないロットは変更されません。</p>
+{% endif %}
 
 <form id="stocktake-form" method="post" action="{% url 'stock:stocktake' %}">
   {% csrf_token %}
@@ -15,35 +21,41 @@
         <th>商品コード</th>
         <th>商品名</th>
         <th>賞味期限</th>
-        <th>現在の店頭在庫</th>
+        <th class="text-end">現在の店頭在庫</th>
+        <th class="text-end">現在の倉庫在庫</th>
         <th>実際の店頭在庫</th>
-        <th>差分（店頭）</th>
-        <th>現在の倉庫在庫</th>
         <th>実際の倉庫在庫</th>
-        <th>差分（倉庫）</th>
+        <th class="text-end">実際の合計</th>
+        <th class="text-end">差分</th>
       </tr>
     </thead>
     <tbody>
       {% for stock in stocks %}
       <tr class="{% if stock.status == 'expired' %}status-expired{% elif stock.status == 'warning' %}status-warning{% endif %}"
-          data-id="{{ stock.id }}">
+          data-current-store="{{ stock.store_quantity }}"
+          data-current-wh="{{ stock.warehouse_quantity }}">
         <td>{{ stock.product_code }}</td>
         <td>{{ stock.name }}</td>
         <td>{{ stock.expiry_date|date:"Y/m/d" }}</td>
         <td class="text-end">{{ stock.store_quantity }}</td>
-        <td>
-          <input type="number" class="form-control form-control-sm actual-store"
-                 name="store_{{ stock.id }}" min="0"
-                 data-current="{{ stock.store_quantity }}" placeholder="—">
-        </td>
-        <td class="text-end fw-bold diff-store">—</td>
         <td class="text-end">{{ stock.warehouse_quantity }}</td>
+        {% if user_role == 'viewer' %}
+        <td class="text-end text-muted">—</td>
+        <td class="text-end text-muted">—</td>
+        <td class="text-end text-muted">—</td>
+        <td class="text-end text-muted">—</td>
+        {% else %}
         <td>
-          <input type="number" class="form-control form-control-sm actual-warehouse"
-                 name="warehouse_{{ stock.id }}" min="0"
-                 data-current="{{ stock.warehouse_quantity }}" placeholder="—">
+          <input type="number" class="form-control form-control-sm actual-input"
+                 name="store_{{ stock.id }}" min="0" placeholder="—">
         </td>
-        <td class="text-end fw-bold diff-warehouse">—</td>
+        <td>
+          <input type="number" class="form-control form-control-sm actual-input"
+                 name="warehouse_{{ stock.id }}" min="0" placeholder="—">
+        </td>
+        <td class="text-end fw-bold actual-total text-muted">—</td>
+        <td class="text-end fw-bold diff-total text-muted">—</td>
+        {% endif %}
       </tr>
       {% endfor %}
     </tbody>
@@ -51,30 +63,48 @@
 </form>
 
 <script>
-function calcDiff(input, diffCell) {
-  const val = input.value.trim();
-  if (val === '') {
-    diffCell.textContent = '—';
-    diffCell.className = 'text-end fw-bold diff-' + diffCell.classList[3];
+function calcRowDiff(row) {
+  const inputs     = row.querySelectorAll('.actual-input');
+  const storeInput = inputs[0];
+  const whInput    = inputs[1];
+  const totalCell  = row.querySelector('.actual-total');
+  const diffCell   = row.querySelector('.diff-total');
+
+  const storeVal = storeInput.value.trim();
+  const whVal    = whInput.value.trim();
+
+  if (storeVal === '' && whVal === '') {
+    totalCell.textContent = '—';
+    totalCell.style.color = '';
+    diffCell.textContent  = '—';
+    diffCell.style.color  = '';
     return;
   }
-  const current = parseInt(input.dataset.current, 10);
-  const actual = parseInt(val, 10);
-  const diff = actual - current;
+
+  const currentStore = parseInt(row.dataset.currentStore, 10);
+  const currentWh    = parseInt(row.dataset.currentWh,    10);
+  const actualStore  = storeVal !== '' ? parseInt(storeVal, 10) : 0;
+  const actualWh     = whVal    !== '' ? parseInt(whVal,    10) : 0;
+  const actualTotal  = actualStore + actualWh;
+  const diff         = actualTotal - (currentStore + currentWh);
+
+  totalCell.textContent = actualTotal;
+  totalCell.style.color = '#212529';
+
   diffCell.textContent = (diff > 0 ? '+' : '') + diff;
   diffCell.style.color = diff > 0 ? '#198754' : diff < 0 ? '#dc3545' : '#6c757d';
 }
 
-document.querySelectorAll('.actual-store').forEach((input) => {
-  const row = input.closest('tr');
-  const diffCell = row.querySelector('.diff-store');
-  input.addEventListener('input', () => calcDiff(input, diffCell));
-});
+const allInputs = Array.from(document.querySelectorAll('.actual-input'));
 
-document.querySelectorAll('.actual-warehouse').forEach((input) => {
-  const row = input.closest('tr');
-  const diffCell = row.querySelector('.diff-warehouse');
-  input.addEventListener('input', () => calcDiff(input, diffCell));
+allInputs.forEach((input, idx) => {
+  input.addEventListener('input', () => calcRowDiff(input.closest('tr')));
+  input.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const next = allInputs[idx + 1];
+    if (next) next.focus();
+  });
 });
 </script>
 {% endblock %}

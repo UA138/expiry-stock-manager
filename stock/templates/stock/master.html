@@ -3,86 +3,478 @@
 {% block content %}
 <h1 class="h4 mb-3">マスタ管理</h1>
 
-<ul class="nav nav-tabs" role="tablist">
+{% if access_denied %}
+<div class="alert alert-danger">
+  <strong>アクセス権限がありません。</strong> マスタ管理は管理者または担当者権限が必要です。
+</div>
+{% else %}
+
+{% if messages %}
+  {% for message in messages %}
+  <div class="alert alert-{% if message.tags == 'warning' %}warning{% else %}success{% endif %} alert-dismissible fade show">
+    {{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endfor %}
+{% endif %}
+
+<ul class="nav nav-tabs" id="masterTabs" role="tablist">
   <li class="nav-item">
-    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#product-tab" type="button">商品マスタ</button>
+    <button class="nav-link {% if tab == 'product' %}active{% endif %}"
+            id="product-tab-btn" data-bs-toggle="tab" data-bs-target="#product-tab" type="button">商品マスタ</button>
   </li>
   <li class="nav-item">
-    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#category-tab" type="button">カテゴリマスタ</button>
+    <button class="nav-link {% if tab == 'category' %}active{% endif %}"
+            id="category-tab-btn" data-bs-toggle="tab" data-bs-target="#category-tab" type="button">カテゴリマスタ</button>
   </li>
   <li class="nav-item">
-    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#user-tab" type="button">ユーザーマスタ</button>
+    <button class="nav-link {% if tab == 'user' %}active{% endif %}"
+            id="user-tab-btn" data-bs-toggle="tab" data-bs-target="#user-tab" type="button">ユーザーマスタ</button>
   </li>
 </ul>
 
 <div class="tab-content card border-top-0 shadow-sm">
-  <div class="tab-pane fade show active p-3" id="product-tab">
-    <div class="d-flex justify-content-end mb-2">
-      <button class="btn btn-sm btn-success">＋ 商品追加</button>
+
+  {# ===== 商品マスタ ===== #}
+  {# 担当者：追加・編集可。削除不可。管理者：全操作可 #}
+  <div class="tab-pane fade {% if tab == 'product' %}show active{% endif %} p-3" id="product-tab">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <a href="?csv=product&tab=product" class="btn btn-sm btn-outline-primary">CSV ダウンロード</a>
+      <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addProductModal">＋ 商品追加</button>
     </div>
-    <table class="table table-bordered bg-white">
-      <thead class="table-light"><tr><th>商品コード</th><th>JANコード</th><th>商品名</th><th>カテゴリ</th><th>賞味期限（製造より○日）</th><th>モール期限（残○日まで）</th><th>操作</th></tr></thead>
-      <tbody>
-        {% for product in products %}
-        <tr>
-          <td>{{ product.product_code }}</td>
-          <td>{{ product.jan_code }}</td>
-          <td>{{ product.name }}</td>
-          <td>{{ product.category }}</td>
-          <td>{{ product.shelf_life_days }}日</td>
-          <td>{{ product.mall_limit_days }}日</td>
-          <td>
-            <button class="btn btn-sm btn-outline-primary">編集</button>
-            <button class="btn btn-sm btn-outline-danger">削除</button>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="table-responsive">
+      <table class="table table-bordered table-hover bg-white align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>商品コード</th><th>JANコード</th><th>商品名</th><th>カテゴリ</th>
+            <th class="text-end">賞味期限（製造より○日）</th>
+            <th class="text-end">モール期限（残○日まで）</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for product in products %}
+          <tr>
+            <td>{{ product.product_code }}</td>
+            <td>{{ product.jan_code }}</td>
+            <td>{{ product.name }}</td>
+            <td>{{ product.category }}</td>
+            <td class="text-end">{% if product.shelf_life_days %}{{ product.shelf_life_days }}日{% else %}—{% endif %}</td>
+            <td class="text-end">{% if product.mall_limit_days %}{{ product.mall_limit_days }}日{% else %}—{% endif %}</td>
+            <td class="text-nowrap">
+              <button class="btn btn-sm btn-outline-primary"
+                data-id="{{ product.id }}"
+                data-code="{{ product.product_code }}"
+                data-jan="{{ product.jan_code }}"
+                data-name="{{ product.name }}"
+                data-cat="{{ product.category.id }}"
+                data-shelf="{{ product.shelf_life_days|default:'' }}"
+                data-mall="{{ product.mall_limit_days|default:'' }}"
+                onclick="openEditProduct(this)">編集</button>
+              <form method="post" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="delete_product">
+                <input type="hidden" name="product_id" value="{{ product.id }}">
+                <button type="button" class="btn btn-sm btn-outline-danger"
+                  onclick="confirmDelete(this.form, '商品「{{ product.name|escapejs }}」')">削除</button>
+              </form>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center text-muted">商品が登録されていません。</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 
-  <div class="tab-pane fade p-3" id="category-tab">
-    <div class="d-flex justify-content-end mb-2">
-      <button class="btn btn-sm btn-success">＋ カテゴリ追加</button>
+  {# ===== カテゴリマスタ ===== #}
+  {# 担当者：閲覧のみ。管理者：全操作可 #}
+  <div class="tab-pane fade {% if tab == 'category' %}show active{% endif %} p-3" id="category-tab">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <a href="?csv=category&tab=category" class="btn btn-sm btn-outline-primary">CSV ダウンロード</a>
+      {% if user_role == 'admin' %}
+      <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addCategoryModal">＋ カテゴリ追加</button>
+      {% endif %}
     </div>
-    <table class="table table-bordered bg-white">
-      <thead class="table-light"><tr><th>カテゴリコード</th><th>カテゴリ名</th><th>操作</th></tr></thead>
-      <tbody>
-        {% for category in categories %}
-        <tr>
-          <td>{{ category.code }}</td>
-          <td>{{ category.name }}</td>
-          <td>
-            <button class="btn btn-sm btn-outline-primary">編集</button>
-            <button class="btn btn-sm btn-outline-danger">削除</button>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="table-responsive">
+      <table class="table table-bordered table-hover bg-white align-middle">
+        <thead class="table-light">
+          <tr><th>カテゴリコード</th><th>カテゴリ名</th>{% if user_role == 'admin' %}<th>操作</th>{% endif %}</tr>
+        </thead>
+        <tbody>
+          {% for category in categories %}
+          <tr>
+            <td>{{ category.code }}</td>
+            <td>{{ category.name }}</td>
+            {% if user_role == 'admin' %}
+            <td class="text-nowrap">
+              <button class="btn btn-sm btn-outline-primary"
+                data-id="{{ category.id }}"
+                data-code="{{ category.code }}"
+                data-name="{{ category.name }}"
+                onclick="openEditCategory(this)">編集</button>
+              <form method="post" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="delete_category">
+                <input type="hidden" name="category_id" value="{{ category.id }}">
+                <button type="button" class="btn btn-sm btn-outline-danger"
+                  onclick="confirmDelete(this.form, 'カテゴリ「{{ category.name|escapejs }}」')">削除</button>
+              </form>
+            </td>
+            {% endif %}
+          </tr>
+          {% empty %}
+          <tr><td colspan="{% if user_role == 'admin' %}3{% else %}2{% endif %}" class="text-center text-muted">カテゴリが登録されていません。</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if user_role == 'staff' %}
+    <p class="text-muted small mt-1">※ カテゴリの追加・編集・削除は管理者のみ操作できます。</p>
+    {% endif %}
   </div>
 
-  <div class="tab-pane fade p-3" id="user-tab">
-    <div class="d-flex justify-content-end mb-2">
-      <button class="btn btn-sm btn-success">＋ ユーザー追加</button>
+  {# ===== ユーザーマスタ ===== #}
+  {# 担当者：閲覧 + 自分の編集のみ。管理者：全操作可 #}
+  <div class="tab-pane fade {% if tab == 'user' %}show active{% endif %} p-3" id="user-tab">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <div class="d-flex gap-2 align-items-center">
+        {% if user_role == 'admin' %}
+        <a href="?csv=user&tab=user" class="btn btn-sm btn-outline-primary">CSV ダウンロード</a>
+        {% endif %}
+        <small class="text-muted">権限：管理者＝全機能 ／ 担当者＝マスタ管理（商品追加・編集）他 ／ 閲覧者＝参照のみ</small>
+      </div>
+      {% if user_role == 'admin' %}
+      <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addUserModal">＋ ユーザー追加</button>
+      {% endif %}
     </div>
-    <table class="table table-bordered bg-white">
-      <thead class="table-light"><tr><th>ユーザーID</th><th>権限</th><th>操作</th></tr></thead>
-      <tbody>
-        {% for user in users %}
-        <tr>
-          <td>{{ user.username }}</td>
-          <td>{{ user.role }}</td>
-          <td>
-            <button class="btn btn-sm btn-outline-primary">編集</button>
-            <button class="btn btn-sm btn-outline-danger">削除</button>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="table-responsive">
+      <table class="table table-bordered table-hover bg-white align-middle">
+        <thead class="table-light">
+          <tr><th>ユーザーID</th><th>権限</th><th>操作</th></tr>
+        </thead>
+        <tbody>
+          {% for u in user_list %}
+          <tr>
+            <td>{{ u.username }}{% if u.is_self %} <span class="badge bg-secondary">自分</span>{% endif %}</td>
+            <td>
+              {% if u.role == 'admin' %}<span class="badge bg-danger">{{ u.role_display }}</span>
+              {% elif u.role == 'staff' %}<span class="badge bg-primary">{{ u.role_display }}</span>
+              {% else %}<span class="badge bg-secondary">{{ u.role_display }}</span>
+              {% endif %}
+            </td>
+            <td class="text-nowrap">
+              {# 編集：管理者は全員、担当者は自分のみ #}
+              {% if user_role == 'admin' or u.is_self %}
+              <button class="btn btn-sm btn-outline-primary"
+                data-id="{{ u.id }}"
+                data-username="{{ u.username }}"
+                data-role="{{ u.role }}"
+                onclick="openEditUser(this)">編集</button>
+              {% endif %}
+              {# 削除：管理者のみ、自分自身は不可 #}
+              {% if user_role == 'admin' %}
+              <form method="post" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="delete_user">
+                <input type="hidden" name="user_id" value="{{ u.id }}">
+                <button type="button" class="btn btn-sm btn-outline-danger"
+                  {% if u.is_self %}disabled title="自分自身は削除できません"
+                  {% else %}onclick="confirmDelete(this.form, 'ユーザー「{{ u.username|escapejs }}」')"{% endif %}>削除</button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="3" class="text-center text-muted">ユーザーが登録されていません。</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if user_role == 'staff' %}
+    <p class="text-muted small mt-1">※ 自分のユーザーID・パスワードの変更のみ可能です。権限の変更・ユーザーの追加・削除は管理者にご依頼ください。</p>
+    {% endif %}
+  </div>
+
+</div>{# end tab-content #}
+
+
+{# ===== モーダル：商品追加 ===== #}
+<div class="modal fade" id="addProductModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form method="post" class="modal-content">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="add_product">
+      <div class="modal-header">
+        <h5 class="modal-title">商品追加</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-bold">商品コード <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" name="product_code" placeholder="例：P0010" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold">JANコード</label>
+          <input type="text" class="form-control" name="jan_code" placeholder="例：4901234567890">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold">商品名 <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" name="name" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold">カテゴリ <span class="text-danger">*</span></label>
+          <select class="form-select" name="category_id" required>
+            <option value="">選択してください</option>
+            {% for cat in categories %}
+            <option value="{{ cat.id }}">{{ cat.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="row">
+          <div class="col-6">
+            <label class="form-label fw-bold">賞味期限（製造より○日）</label>
+            <input type="number" class="form-control" name="shelf_life_days" min="1" placeholder="省略可">
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-bold">モール期限（残○日まで）</label>
+            <input type="number" class="form-control" name="mall_limit_days" min="1" placeholder="省略可">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <button type="submit" class="btn btn-success">追加</button>
+      </div>
+    </form>
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+{# ===== モーダル：商品編集 ===== #}
+<div class="modal fade" id="editProductModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form method="post" class="modal-content">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="edit_product">
+      <input type="hidden" name="product_id" id="ep-id">
+      <div class="modal-header">
+        <h5 class="modal-title">商品編集</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-bold">商品コード <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" name="product_code" id="ep-code" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold">JANコード</label>
+          <input type="text" class="form-control" name="jan_code" id="ep-jan">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold">商品名 <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" name="name" id="ep-name" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold">カテゴリ <span class="text-danger">*</span></label>
+          <select class="form-select" name="category_id" id="ep-cat" required>
+            <option value="">選択してください</option>
+            {% for cat in categories %}
+            <option value="{{ cat.id }}">{{ cat.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="row">
+          <div class="col-6">
+            <label class="form-label fw-bold">賞味期限（製造より○日）</label>
+            <input type="number" class="form-control" name="shelf_life_days" id="ep-shelf" min="1" placeholder="省略可">
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-bold">モール期限（残○日まで）</label>
+            <input type="number" class="form-control" name="mall_limit_days" id="ep-mall" min="1" placeholder="省略可">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <button type="submit" class="btn btn-primary">更新</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# ===== モーダル：カテゴリ追加（管理者のみ表示） ===== #}
+{% if user_role == 'admin' %}
+<div class="modal fade" id="addCategoryModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <form method="post" class="modal-content">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="add_category">
+      <div class="modal-header">
+        <h5 class="modal-title">カテゴリ追加</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-bold">カテゴリコード <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" name="code" placeholder="例：CAT010" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold">カテゴリ名 <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" name="name" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <button type="submit" class="btn btn-success">追加</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# ===== モーダル：カテゴリ編集（管理者のみ表示） ===== #}
+<div class="modal fade" id="editCategoryModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <form method="post" class="modal-content">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="edit_category">
+      <input type="hidden" name="category_id" id="ec-id">
+      <div class="modal-header">
+        <h5 class="modal-title">カテゴリ編集</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-bold">カテゴリコード <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" name="code" id="ec-code" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold">カテゴリ名 <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" name="name" id="ec-name" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <button type="submit" class="btn btn-primary">更新</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# ===== モーダル：ユーザー追加（管理者のみ表示） ===== #}
+<div class="modal fade" id="addUserModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <form method="post" class="modal-content">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="add_user">
+      <div class="modal-header">
+        <h5 class="modal-title">ユーザー追加</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-bold">ユーザーID <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" name="username" required autocomplete="off">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold">パスワード <span class="text-danger">*</span></label>
+          <input type="password" class="form-control" name="password" required autocomplete="new-password">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold">権限 <span class="text-danger">*</span></label>
+          <select class="form-select" name="role" required>
+            <option value="admin">管理者（全機能）</option>
+            <option value="staff" selected>担当者（マスタ管理・商品追加編集など）</option>
+            <option value="viewer">閲覧者（参照のみ）</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <button type="submit" class="btn btn-success">追加</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}{# end admin-only modals #}
+
+{# ===== モーダル：ユーザー編集（管理者 + 担当者自身） ===== #}
+<div class="modal fade" id="editUserModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <form method="post" class="modal-content">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="edit_user">
+      <input type="hidden" name="user_id" id="eu-id">
+      <div class="modal-header">
+        <h5 class="modal-title">ユーザー編集</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-bold">ユーザーID <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" name="username" id="eu-username" required autocomplete="off">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold">新パスワード</label>
+          <input type="password" class="form-control" name="new_password" autocomplete="new-password" placeholder="変更する場合のみ入力">
+        </div>
+        {# 権限フィールドは管理者のみ。担当者はJSで非表示 #}
+        <div class="mb-3" id="eu-role-wrapper">
+          <label class="form-label fw-bold">権限</label>
+          <select class="form-select" name="role" id="eu-role">
+            <option value="admin">管理者（全機能）</option>
+            <option value="staff">担当者（マスタ管理・商品追加編集など）</option>
+            <option value="viewer">閲覧者（参照のみ）</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <button type="submit" class="btn btn-primary">更新</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endif %}{# end access_denied check #}
+{% endblock %}
+
+{% block scripts %}
+<script>
+var CURRENT_USER_ROLE = '{{ user_role|default:"" }}';
+
+function openEditProduct(btn) {
+  document.getElementById('ep-id').value    = btn.dataset.id;
+  document.getElementById('ep-code').value  = btn.dataset.code;
+  document.getElementById('ep-jan').value   = btn.dataset.jan;
+  document.getElementById('ep-name').value  = btn.dataset.name;
+  document.getElementById('ep-shelf').value = btn.dataset.shelf;
+  document.getElementById('ep-mall').value  = btn.dataset.mall;
+  document.getElementById('ep-cat').value   = btn.dataset.cat;
+  new bootstrap.Modal(document.getElementById('editProductModal')).show();
+}
+
+function openEditCategory(btn) {
+  document.getElementById('ec-id').value   = btn.dataset.id;
+  document.getElementById('ec-code').value = btn.dataset.code;
+  document.getElementById('ec-name').value = btn.dataset.name;
+  new bootstrap.Modal(document.getElementById('editCategoryModal')).show();
+}
+
+function openEditUser(btn) {
+  document.getElementById('eu-id').value      = btn.dataset.id;
+  document.getElementById('eu-username').value = btn.dataset.username;
+  document.getElementById('eu-role').value     = btn.dataset.role;
+  // 担当者は権限フィールドを非表示
+  document.getElementById('eu-role-wrapper').style.display =
+    (CURRENT_USER_ROLE === 'admin') ? '' : 'none';
+  new bootstrap.Modal(document.getElementById('editUserModal')).show();
+}
+
+function confirmDelete(form, label) {
+  if (confirm(label + 'を削除します。\nよろしいですか？')) {
+    form.submit();
+  }
+}
+</script>
 {% endblock %}

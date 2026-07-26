@@ -6,3 +6,16 @@ services:
       - .:/app
     ports:
       - "8000:8000"
+    environment:
+      # 開発中はコンソール出力（Dockerログに表示される）
+      - EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+      # 本番環境では以下を設定してsmtpに切り替える
+      # - EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+      # - EMAIL_HOST=smtp.gmail.com
+      # - EMAIL_PORT=587
+      # - EMAIL_USE_TLS=true
+      # - EMAIL_HOST_USER=your-email@gmail.com
+      # - EMAIL_HOST_PASSWORD=your-app-password
+      # - DEFAULT_FROM_EMAIL=your-email@gmail.com
+      # 通知先メールアドレス（カンマ区切りで複数指定可）
+      - ADMIN_NOTIFY_EMAIL=

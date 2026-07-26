@@ -10,22 +10,35 @@
 </style>
 </head>
 <body>
-<div class="login-card">
+<div class="login-card w-100 px-3">
   <div class="card shadow-sm">
     <div class="card-body p-4">
       <h1 class="h4 text-center mb-1">在庫管理システム</h1>
       <p class="text-center text-muted mb-4">賞味期限アラート付き</p>
-      <form method="post" action="{% url 'stock:stock_list' %}">
+
+      {% if error %}
+      <div class="alert alert-danger py-2">{{ error }}</div>
+      {% endif %}
+
+      <form method="post" action="{% url 'stock:login' %}{% if next %}?next={{ next }}{% endif %}">
+        {% csrf_token %}
+        {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
         <div class="mb-3">
-          <label class="form-label">ユーザーID</label>
-          <input type="text" class="form-control" name="username" placeholder="ユーザーIDを入力">
+          <label class="form-label fw-bold">ユーザーID</label>
+          <input type="text" class="form-control" name="username" autofocus
+                 placeholder="ユーザーIDを入力">
         </div>
-        <div class="mb-3">
-          <label class="form-label">パスワード</label>
-          <input type="password" class="form-control" name="password" placeholder="パスワードを入力">
+        <div class="mb-4">
+          <label class="form-label fw-bold">パスワード</label>
+          <input type="password" class="form-control" name="password"
+                 placeholder="パスワードを入力">
         </div>
         <button type="submit" class="btn btn-success w-100">ログイン</button>
       </form>
+
+      <div class="text-center mt-3">
+        <a href="{% url 'stock:register' %}" class="text-muted small">新規登録はこちら</a>
+      </div>
     </div>
   </div>
 </div>

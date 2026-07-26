@@ -1,50 +1,59 @@
 {% extends "stock/base.html" %}
-{% block title %}{% if mode == 'register' %}在庫登録{% else %}在庫編集{% endif %}｜在庫管理システム{% endblock %}
+{% block title %}在庫ロット編集｜在庫管理システム{% endblock %}
 {% block content %}
-<h1 class="h4 mb-3">{% if mode == 'register' %}在庫登録{% else %}在庫編集{% endif %}</h1>
+<h1 class="h4 mb-3">在庫ロット編集</h1>
 
-<div class="card shadow-sm">
+{% if errors %}
+<div class="alert alert-danger">
+  <ul class="mb-0">
+    {% for e in errors %}<li>{{ e }}</li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<div class="card shadow-sm" style="max-width:560px">
   <div class="card-body">
-    <form method="post" action="{% url 'stock:stock_list' %}">
-      <div class="row">
-        <div class="col-md-6 mb-3">
-          <label class="form-label">商品コード</label>
-          <input type="text" class="form-control" name="product_code" value="{{ item.product_code|default:'' }}" placeholder="例：P0001">
-        </div>
-        <div class="col-md-6 mb-3">
-          <label class="form-label">JANコード</label>
-          <input type="text" class="form-control" name="jan_code" value="{{ item.jan_code|default:'' }}" placeholder="例：4901234567890">
-        </div>
-      </div>
+    <form method="post" action="{% url 'stock:stock_edit' item.id %}">
+      {% csrf_token %}
+
       <div class="mb-3">
-        <label class="form-label">商品名</label>
-        <input type="text" class="form-control" name="name" value="{{ item.name|default:'' }}" placeholder="商品名を入力">
+        <label class="form-label fw-bold">商品コード</label>
+        <input type="text" class="form-control bg-light" value="{{ item.product_code }}" readonly>
       </div>
+
       <div class="mb-3">
-        <label class="form-label">カテゴリ</label>
-        <select class="form-select" name="category">
-          <option value="">選択してください</option>
-          {% for category in categories %}
-          <option value="{{ category.code }}" {% if item.category == category.name %}selected{% endif %}>{{ category.code }}｜{{ category.name }}</option>
-          {% endfor %}
-        </select>
+        <label class="form-label fw-bold">商品名</label>
+        <input type="text" class="form-control bg-light" value="{{ item.name }}" readonly>
       </div>
-      <div class="row">
-        <div class="col-md-4 mb-3">
-          <label class="form-label">店頭在庫数</label>
-          <input type="number" class="form-control" name="store_quantity" value="{{ item.store_quantity|default:'' }}">
+
+      <div class="mb-3">
+        <label class="form-label fw-bold">カテゴリ</label>
+        <input type="text" class="form-control bg-light" value="{{ item.category }}" readonly>
+      </div>
+
+      <div class="mb-3">
+        <label for="expiry_date" class="form-label fw-bold">賞味期限 <span class="text-danger">*</span></label>
+        <input type="date" class="form-control" id="expiry_date" name="expiry_date"
+               value="{{ item.expiry_date|date:'Y-m-d' }}" style="max-width:180px">
+      </div>
+
+      <div class="row g-3 mb-4">
+        <div class="col-6">
+          <label class="form-label fw-bold">店頭在庫数</label>
+          <input type="number" class="form-control" name="store_quantity"
+                 value="{{ item.store_quantity }}">
         </div>
-        <div class="col-md-4 mb-3">
-          <label class="form-label">倉庫在庫数</label>
-          <input type="number" class="form-control" name="warehouse_quantity" value="{{ item.warehouse_quantity|default:'' }}">
-        </div>
-        <div class="col-md-4 mb-3">
-          <label class="form-label">賞味期限</label>
-          <input type="date" class="form-control" name="expiry_date" value="{{ item.expiry_date|date:'Y-m-d'|default:'' }}">
+        <div class="col-6">
+          <label class="form-label fw-bold">倉庫在庫数</label>
+          <input type="number" class="form-control" name="warehouse_quantity"
+                 value="{{ item.warehouse_quantity }}">
         </div>
       </div>
-      <div class="mt-4 d-flex gap-2">
-        <button type="submit" class="btn btn-success">{% if mode == 'register' %}登録{% else %}更新{% endif %}</button>
+
+      <p class="text-muted small">※ 在庫数の変更履歴は残りません。通常の入出庫は「入出庫登録」を、大量修正は「棚卸し」を使用してください。</p>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-success">更新</button>
         <a href="{% url 'stock:stock_list' %}" class="btn btn-outline-secondary">キャンセル</a>
       </div>
     </form>

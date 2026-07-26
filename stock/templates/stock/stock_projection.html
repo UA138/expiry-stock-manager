@@ -2,50 +2,109 @@
 {% block title %}在庫照会｜在庫管理システム{% endblock %}
 {% block content %}
 <h1 class="h4 mb-3">在庫照会（指定日時点の予測在庫）</h1>
-<p class="text-muted">指定した日付までに登録済みの出庫予定を、賞味期限が近いロットから順に（FEFO）差し引いた予測在庫を表示します。</p>
+<p class="text-muted">指定した日付までに登録済みの仮出庫予定を、賞味期限が近いロットから順に（FEFO）差し引いた予測在庫を表示します。仮入庫予定も加算して計算されます。</p>
 
 <div class="card shadow-sm mb-3">
   <div class="card-body">
     <form method="get" class="row g-2 align-items-end">
-      <div class="col-md-4">
-        <label class="form-label">基準日</label>
+      <div class="col-md-2">
+        <label class="form-label fw-bold mb-1">基準日</label>
         <input type="date" class="form-control" name="target_date" value="{{ target_date }}">
       </div>
+      <div class="col-md-3">
+        <label class="form-label fw-bold mb-1">キーワード</label>
+        <input type="text" class="form-control" name="keyword" value="{{ keyword }}"
+               placeholder="商品名・商品コード">
+      </div>
       <div class="col-md-2">
+        <label class="form-label fw-bold mb-1">カテゴリ</label>
+        <select class="form-select" name="category">
+          <option value="">すべて</option>
+          {% for cat in categories %}
+          <option value="{{ cat.code }}" {% if category == cat.code %}selected{% endif %}>{{ cat.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label fw-bold mb-1">期限状態</label>
+        <select class="form-select" name="status_filter">
+          <option value="">すべて</option>
+          <option value="expired" {% if status_f == 'expired' %}selected{% endif %}>期限切れ</option>
+          <option value="warning" {% if status_f == 'warning' %}selected{% endif %}>期限間近</option>
+          <option value="ok"      {% if status_f == 'ok'      %}selected{% endif %}>正常</option>
+        </select>
+      </div>
+      <div class="col-md-1">
         <button type="submit" class="btn btn-success w-100">表示</button>
       </div>
+      {% if target_date %}
+      <div class="col-md-1">
+        <a href="?target_date={{ target_date }}" class="btn btn-outline-secondary w-100">リセット</a>
+      </div>
+      {% endif %}
     </form>
   </div>
 </div>
 
 {% if projections is not None %}
-<table class="table table-bordered bg-white align-middle">
-  <thead class="table-light">
-    <tr>
-      <th>商品コード</th>
-      <th>商品名</th>
-      <th>賞味期限</th>
-      <th>店頭予測在庫</th>
-      <th>倉庫予測在庫</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for row in projections %}
-    <tr class="{% if row.shortage %}table-danger{% endif %}">
-      <td>{{ row.product_code }}</td>
-      <td>{{ row.name }}</td>
-      {% if row.shortage %}
-        <td colspan="3">
-          出荷予定数が在庫を上回っています（不足：店頭 {{ row.shortage_store }} / 倉庫 {{ row.shortage_warehouse }}）
-        </td>
-      {% else %}
-        <td>{{ row.expiry_date|date:"Y/m/d" }}</td>
-        <td>{{ row.projected_store_quantity }}</td>
-        <td>{{ row.projected_warehouse_quantity }}</td>
-      {% endif %}
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+  {% if projections %}
+  <div class="table-responsive">
+    <table class="table table-bordered bg-white align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>商品コード</th>
+          <th>商品名</th>
+          <th>カテゴリ</th>
+          <th>賞味期限</th>
+          <th>状態</th>
+          <th class="text-end">予測在庫合計</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in projections %}
+        {% if row.shortage %}
+        <tr class="table-danger">
+          <td>{{ row.product_code }}</td>
+          <td>{{ row.name }}</td>
+          <td>{{ row.category_name }}</td>
+          <td colspan="2" class="text-danger fw-bold">
+            在庫不足（出荷予定数が在庫を上回っています）
+          </td>
+          <td class="text-end fw-bold text-danger">−{{ row.shortage_total }}</td>
+        </tr>
+        {% else %}
+        <tr class="{% if row.status == 'expired' %}status-expired{% elif row.status == 'warning' %}status-warning{% endif %}">
+          <td>{{ row.product_code }}</td>
+          <td>{{ row.name }}</td>
+          <td>{{ row.category_name }}</td>
+          <td>{{ row.expiry_date|date:"Y/m/d" }}</td>
+          <td>
+            {% if row.status == 'expired' %}
+              <span class="badge bg-danger">期限切れ</span>
+            {% elif row.status == 'warning' %}
+              <span class="badge bg-warning text-dark">期限間近</span>
+            {% else %}
+              <span class="badge bg-secondary">正常</span>
+            {% endif %}
+            {% if row.mall_status == 'mall_ng' %}
+              <span class="badge bg-danger">モール販売NG</span>
+            {% elif row.mall_status == 'mall_warning' %}
+              <span class="badge" style="background-color:#fd7e14;">モール期限間近</span>
+            {% endif %}
+          </td>
+          <td class="text-end">{{ row.projected_total }}</td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="alert alert-info">該当するデータがありません。</div>
+  {% endif %}
+{% elif target_date %}
+  <div class="alert alert-info">該当するデータがありません。</div>
+{% else %}
+  <p class="text-muted">基準日を指定して「表示」を押してください。</p>
 {% endif %}
 {% endblock %}
