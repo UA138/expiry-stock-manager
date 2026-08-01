@@ -139,7 +139,8 @@
       <input type="hidden" name="s_to"     value="{{ s_to }}">
       <input type="hidden" name="s_code"   value="{{ s_code }}">
       <button type="button" class="btn btn-outline-danger btn-sm"
-              onclick="doAction(this.form, '削除', {{ r_unconfirmed_count }})">
+              data-count="{{ r_unconfirmed_count }}"
+              onclick="doAction(this.form, '削除', this.dataset.count)">
         仮データを削除（{{ r_unconfirmed_count }}件）
       </button>
     </form>
@@ -155,7 +156,8 @@
       <input type="hidden" name="s_to"     value="{{ s_to }}">
       <input type="hidden" name="s_code"   value="{{ s_code }}">
       <button type="button" class="btn btn-success btn-sm"
-              onclick="doAction(this.form, '在庫に反映して確定', {{ r_unconfirmed_count }})">
+              data-count="{{ r_unconfirmed_count }}"
+              onclick="doAction(this.form, '在庫に反映して確定', this.dataset.count)">
         在庫に反映して確定（{{ r_unconfirmed_count }}件）
       </button>
     </form>
@@ -283,7 +285,8 @@
       <input type="hidden" name="r_to"    value="{{ r_to }}">
       <input type="hidden" name="r_code"  value="{{ r_code }}">
       <button type="button" class="btn btn-outline-danger btn-sm"
-              onclick="doAction(this.form, '削除', {{ unconfirmed_count }})">
+              data-count="{{ unconfirmed_count }}"
+              onclick="doAction(this.form, '削除', this.dataset.count)">
         仮データを削除（{{ unconfirmed_count }}件）
       </button>
     </form>
@@ -298,7 +301,8 @@
       <input type="hidden" name="r_to"    value="{{ r_to }}">
       <input type="hidden" name="r_code"  value="{{ r_code }}">
       <button type="button" class="btn btn-success btn-sm"
-              onclick="doAction(this.form, '在庫に反映して確定', {{ unconfirmed_count }})">
+              data-count="{{ unconfirmed_count }}"
+              onclick="doAction(this.form, '在庫に反映して確定', this.dataset.count)">
         在庫に反映して確定（{{ unconfirmed_count }}件）
       </button>
     </form>
