@@ -103,7 +103,7 @@ allInputs.forEach((input, idx) => {
     if (e.key !== 'Enter') return;
     e.preventDefault();
     const next = allInputs[idx + 1];
-    if (next) next.focus();
+    if (next) setTimeout(() => next.focus(), 0);
   });
 });
 </script>
