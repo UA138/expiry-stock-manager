@@ -84,12 +84,7 @@
 
 <script>
 let rowIndex = 0;
-const REMARKS_MAX_LEN     = 30;
-const REMARKS_DISPLAY_LEN = 8;
-
-function truncate(text) {
-  return text.length > REMARKS_DISPLAY_LEN ? text.slice(0, REMARKS_DISPLAY_LEN) + '…' : text;
-}
+const REMARKS_MAX_LEN = 30;
 
 function createRow() {
   const idx = rowIndex++;
@@ -111,35 +106,17 @@ function createRow() {
     </td>
     <td><input type="number" class="form-control form-control-sm quantity-input" name="quantity_${idx}" placeholder="例：10"></td>
     <td>
-      <span class="remarks-display text-muted fst-italic small" title="">クリックして入力</span>
-      <input type="text" class="form-control form-control-sm d-none remarks-input"
-             name="remarks_${idx}" maxlength="${REMARKS_MAX_LEN}" placeholder="30文字まで">
+      <input type="text" class="form-control form-control-sm remarks-input"
+             name="remarks_${idx}" maxlength="${REMARKS_MAX_LEN}" placeholder="備考(任意)">
     </td>
     <td class="text-center">
       <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">×</button>
     </td>
   `;
 
-  const codeInput   = tr.querySelector('.product-code-input');
-  const remarksSpan = tr.querySelector('.remarks-display');
-  const remarksInput= tr.querySelector('.remarks-input');
+  const codeInput = tr.querySelector('.product-code-input');
 
   codeInput.addEventListener('blur', () => lookupProduct(tr));
-
-  remarksSpan.addEventListener('click', () => {
-    remarksSpan.classList.add('d-none');
-    remarksInput.classList.remove('d-none');
-    remarksInput.focus();
-  });
-  remarksInput.addEventListener('blur', () => {
-    const val = remarksInput.value;
-    remarksSpan.title = val;
-    remarksSpan.textContent = val ? truncate(val) : 'クリックして入力';
-    remarksSpan.classList.toggle('text-muted', !val);
-    remarksSpan.classList.toggle('fst-italic', !val);
-    remarksSpan.classList.remove('d-none');
-    remarksInput.classList.add('d-none');
-  });
 
   tr.querySelectorAll('input:not([readonly]), select').forEach(input => {
     input.addEventListener('keydown', async function(e) {
@@ -149,10 +126,13 @@ function createRow() {
         await lookupProduct(tr);
       }
       const all = [...document.querySelectorAll(
-        '#receive-body input:not([readonly]):not(.d-none), #receive-body select'
+        '#receive-body input:not([readonly]), #receive-body select'
       )];
       const pos = all.indexOf(input);
-      if (pos !== -1 && pos + 1 < all.length) all[pos + 1].focus();
+      if (pos !== -1 && pos + 1 < all.length) {
+        const next = all[pos + 1];
+        setTimeout(() => next.focus(), 0);
+      }
     });
   });
 
@@ -276,12 +256,7 @@ for (let i = 0; i < 3; i++) tbody.appendChild(createRow());
 
 <script>
 let rowIndex = 0;
-const REMARKS_MAX_LEN     = 30;
-const REMARKS_DISPLAY_LEN = 8;
-
-function truncate(text) {
-  return text.length > REMARKS_DISPLAY_LEN ? text.slice(0, REMARKS_DISPLAY_LEN) + '…' : text;
-}
+const REMARKS_MAX_LEN = 30;
 
 function createRow() {
   const idx = rowIndex++;
@@ -303,35 +278,17 @@ function createRow() {
     <td><input type="number" class="form-control form-control-sm quantity-input" name="quantity_${idx}" min="1" placeholder="例：5"></td>
     <td><input type="text" class="form-control form-control-sm text-end" data-field="total_quantity" readonly placeholder="—"></td>
     <td>
-      <span class="remarks-display text-muted fst-italic small" title="">クリックして入力</span>
-      <input type="text" class="form-control form-control-sm d-none remarks-input"
-             name="remarks_${idx}" maxlength="${REMARKS_MAX_LEN}" placeholder="30文字まで">
+      <input type="text" class="form-control form-control-sm remarks-input"
+             name="remarks_${idx}" maxlength="${REMARKS_MAX_LEN}" placeholder="備考(任意)">
     </td>
     <td class="text-center">
       <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">×</button>
     </td>
   `;
 
-  const codeInput   = tr.querySelector('.product-code-input');
-  const remarksSpan = tr.querySelector('.remarks-display');
-  const remarksInput= tr.querySelector('.remarks-input');
+  const codeInput = tr.querySelector('.product-code-input');
 
   codeInput.addEventListener('blur', () => lookupProduct(tr));
-
-  remarksSpan.addEventListener('click', () => {
-    remarksSpan.classList.add('d-none');
-    remarksInput.classList.remove('d-none');
-    remarksInput.focus();
-  });
-  remarksInput.addEventListener('blur', () => {
-    const val = remarksInput.value;
-    remarksSpan.title = val;
-    remarksSpan.textContent = val ? truncate(val) : 'クリックして入力';
-    remarksSpan.classList.toggle('text-muted', !val);
-    remarksSpan.classList.toggle('fst-italic', !val);
-    remarksSpan.classList.remove('d-none');
-    remarksInput.classList.add('d-none');
-  });
 
   tr.querySelectorAll('input:not([readonly]), select').forEach(input => {
     input.addEventListener('keydown', async function(e) {
@@ -341,10 +298,13 @@ function createRow() {
         await lookupProduct(tr);
       }
       const all = [...document.querySelectorAll(
-        '#ship-body input:not([readonly]):not(.d-none), #ship-body select'
+        '#ship-body input:not([readonly]), #ship-body select'
       )];
       const pos = all.indexOf(input);
-      if (pos !== -1 && pos + 1 < all.length) all[pos + 1].focus();
+      if (pos !== -1 && pos + 1 < all.length) {
+        const next = all[pos + 1];
+        setTimeout(() => next.focus(), 0);
+      }
     });
   });
 
@@ -416,12 +376,6 @@ for (let i = 0; i < 3; i++) tbody.appendChild(createRow());
 {% endif %}
 
 <style>
-  .remarks-display {
-    cursor: pointer; display: block; max-width: 130px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    padding: 3px 2px; border-radius: 4px;
-  }
-  .remarks-display:hover { background: #f0f0f0; }
   .field-error { border-color: #dc3545 !important; }
 </style>
 {% endblock %}

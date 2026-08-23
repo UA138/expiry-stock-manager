@@ -1,0 +1,24 @@
+databases:
+  - name: expiry-stock-manager-db
+    plan: free
+    databaseName: expiry_stock_manager
+    user: expiry_stock_manager
+
+services:
+  - type: web
+    name: expiry-stock-manager
+    runtime: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate"
+    startCommand: "gunicorn config.wsgi:application"
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: expiry-stock-manager-db
+          property: connectionString
+      - key: PYTHON_VERSION
+        value: "3.12.7"

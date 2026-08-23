@@ -1124,6 +1124,12 @@ def master_view(request):
         "user_role":  role,
     })
 
+# ── トップページ（ツール紹介・ログイン不要） ─────────────────────────────────
+def landing_view(request):
+    if request.user.is_authenticated:
+        return redirect("stock:stock_list")
+    return render(request, "stock/landing.html")
+
 
 # ── ユーザー自己登録（ログイン不要） ──────────────────────────────────────────
 def register_view(request):
