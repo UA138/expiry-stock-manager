@@ -6,3 +6,4 @@ media/
 staticfiles/
 .venv/
 pyrightconfig.json
+backup.json
