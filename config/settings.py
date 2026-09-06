@@ -174,7 +174,8 @@ DEFAULT_FROM_EMAIL  = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@example.com'
 
 # 新規ユーザー登録時の通知先（カンマ区切りで複数指定可）
 ADMIN_NOTIFY_EMAIL  = os.environ.get('ADMIN_NOTIFY_EMAIL', '')
-
+# slackのwebhook URL（新規ユーザー登録時の通知に使用）
+SLACK_WEBHOOK_URL   = os.environ.get('SLACK_WEBHOOK_URL', '')
 # Authentication
 LOGIN_URL = '/stock/login/'
 LOGIN_REDIRECT_URL = '/stock/'
